@@ -1,0 +1,19 @@
+{
+  "name": "agent",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "livekit-client": "^2.5.0",
+    "livekit-server-sdk": "^2.6.0",
+    "openai": "^4.60.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
