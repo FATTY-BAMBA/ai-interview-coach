@@ -1,4 +1,4 @@
-'use server';
+// Remove the top-level 'use server' directive
 
 import { signIn as serverSignIn, signOut as serverSignOut } from '@/lib/auth';
 import { AuthError } from 'next-auth';
@@ -12,6 +12,8 @@ function clean(s: string) {
 }
 
 export async function signInWithCredentials(email: string, password: string) {
+  'use server'; // Add directive inside the function
+  
   const e = clean(email);
   const p = password ?? '';
 
@@ -39,14 +41,20 @@ export async function signInWithCredentials(email: string, password: string) {
 }
 
 export async function signInWithGoogle(callbackUrl = '/') {
+  'use server'; // Add directive inside the function
+  
   await serverSignIn('google', { redirectTo: callbackUrl });
 }
 
 export async function signOut() {
+  'use server'; // Add directive inside the function
+  
   await serverSignOut({ redirectTo: '/login' });
 }
 
 export async function registerUser(name: string, email: string, password: string) {
+  'use server'; // Add directive inside the function
+  
   const n = clean(name);
   const e = clean(email);
   const p = password ?? '';
