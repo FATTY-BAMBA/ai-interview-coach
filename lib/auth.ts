@@ -1,50 +1,88 @@
-import NextAuth, { type NextAuthConfig } from "next-auth";
-import Google from "next-auth/providers/google";
-import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { z } from "zod";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import NextAuth from 'next-auth';
+import type { NextAuthConfig } from 'next-auth';
+import GoogleProvider from 'next-auth/providers/google';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
-const credentialsSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
-
-const authConfig: NextAuthConfig = {
+const config: NextAuthConfig = {
   providers: [
-    Google({
+    GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    Credentials({
+    CredentialsProvider({
+      name: 'credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
-      authorize: async (creds) => {
-        const parsed = credentialsSchema.safeParse(creds);
-        if (!parsed.success) return null;
-        const { email, password } = parsed.data;
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
 
-        const row = await db.query.users.findFirst({
-          where: eq(users.email, email),
-          columns: { id: true, name: true, email: true, passwordHash: true },
+        const user = await db.query.users.findFirst({
+          where: eq(users.email, credentials.email as string),
         });
 
-        if (!row?.passwordHash) return null;
-        const ok = await bcrypt.compare(password, row.passwordHash);
-        if (!ok) return null;
+        if (!user || !user.passwordHash) {
+          return null;
+        }
 
-        return { id: String(row.id), name: row.name ?? null, email: row.email };
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user.passwordHash
+        );
+
+        if (!isValid) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        };
       },
     }),
   ],
-  pages: { signIn: "/login" },
-  session: { strategy: "jwt" as const }, // <-- optional literal cast
+  pages: {
+    signIn: '/login',
+  },
+  callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === 'google' && user.email) {
+        const existingUser = await db.query.users.findFirst({
+          where: eq(users.email, user.email),
+        });
+
+        if (!existingUser) {
+          await db.insert(users).values({
+            email: user.email,
+            name: user.name || user.email.split('@')[0],
+            passwordHash: '',
+          });
+        }
+      }
+      return true;
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).id = token.id;
+      }
+      return session;
+    },
+  },
+  trustHost: true,
 };
 
-// Lazy initialization to prevent early NextAuth execution
-export const getAuth = () => NextAuth(authConfig);
-export const { handlers, signIn, signOut, auth } = getAuth();
+export const { handlers, auth, signIn, signOut } = NextAuth(config);
