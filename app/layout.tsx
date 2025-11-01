@@ -1,32 +1,24 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import AuthProvider from "@/components/AuthProvider";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import SessionProvider from '@/components/SessionProvider';
 
-const geist = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "AI Interview Coach",
-  description: "Practice interviews with AI-powered feedback",
+  title: 'AI Interview Coach',
+  description: 'Practice interviews with AI',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body className={`${geist.variable} ${geistMono.variable} antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+      <body className={inter.className}>
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );

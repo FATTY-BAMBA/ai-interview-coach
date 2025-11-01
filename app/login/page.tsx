@@ -1,47 +1,44 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleCredentialsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const formData = new FormData(e.currentTarget);
-    
     try {
-      const res = await fetch('/api/auth/callback/credentials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          email: formData.get('email') as string,
-          password: formData.get('password') as string,
-          callbackUrl: '/',
-        }),
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
       });
 
-      if (res.ok) {
-        router.push('/');
-        router.refresh();
-      } else {
+      if (result?.error) {
         setError('Invalid email or password');
         setLoading(false);
+      } else if (result?.ok) {
+        router.push('/');
+        router.refresh();
       }
     } catch (err) {
-      setError('Sign in failed');
+      setError('Something went wrong');
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = () => {
-    window.location.href = '/api/auth/signin/google?callbackUrl=/';
+    signIn('google', { callbackUrl: '/' });
   };
 
   return (
@@ -84,15 +81,16 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email
             </label>
             <input
               id="email"
-              name="email"
               type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="you@example.com"
@@ -110,8 +108,9 @@ export default function LoginPage() {
             </div>
             <input
               id="password"
-              name="password"
               type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="••••••••"

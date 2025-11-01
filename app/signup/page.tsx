@@ -1,55 +1,86 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function SignupPage() {
   const router = useRouter();
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const formData = new FormData(e.currentTarget);
-    const name = formData.get('name') as string;
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const confirmPassword = formData.get('confirmPassword') as string;
-
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
       return;
     }
 
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await fetch('/api/auth/register', {
+      // Create account
+      const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
       });
 
       const data = await res.json();
 
-      if (!data.success) {
-        setError(data.error);
+      if (!res.ok) {
+        setError(data.error || 'Failed to create account');
         setLoading(false);
         return;
       }
 
-      router.push('/login?registered=true');
+      // Auto sign in after signup
+      const result = await signIn('credentials', {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (result?.ok) {
+        router.push('/');
+        router.refresh();
+      } else {
+        router.push('/login');
+      }
     } catch (err) {
-      setError('Failed to create account');
+      setError('Something went wrong');
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = () => {
-    window.location.href = '/api/auth/signin/google?callbackUrl=/';
+    signIn('google', { callbackUrl: '/' });
   };
 
   return (
@@ -59,8 +90,8 @@ export default function SignupPage() {
           <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">🧑‍💻</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create your account</h1>
-          <p className="text-gray-600">Start practicing interviews</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
+          <p className="text-gray-600">Start practicing interviews with AI</p>
         </div>
 
         {error && (
@@ -94,46 +125,75 @@ export default function SignupPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              Name
+            </label>
             <input
+              id="name"
               name="name"
+              type="text"
+              value={formData.name}
+              onChange={handleChange}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Your name"
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              Email
+            </label>
             <input
+              id="email"
               name="email"
               type="email"
+              value={formData.email}
+              onChange={handleChange}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="you@example.com"
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              Password
+            </label>
             <input
+              id="password"
               name="password"
               type="password"
+              value={formData.password}
+              onChange={handleChange}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="••••••••"
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              Confirm Password
+            </label>
             <input
+              id="confirmPassword"
               name="confirmPassword"
               type="password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="••••••••"
             />
           </div>
+
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
-            {loading ? 'Creating account...' : 'Sign Up'}
+            {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
 

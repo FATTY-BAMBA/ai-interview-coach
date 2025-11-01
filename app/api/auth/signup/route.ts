@@ -1,23 +1,30 @@
-export const runtime = 'nodejs';
-
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
-import bcrypt from 'bcryptjs';
+import { eq } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name } = await req.json();
+    const { name, email, password } = await req.json();
 
-    if (!email || !password) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'All fields are required' },
         { status: 400 }
       );
     }
 
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user exists
     const existingUser = await db.query.users.findFirst({
-      where: (users, { eq }) => eq(users.email, email),
+      where: eq(users.email, email),
     });
 
     if (existingUser) {
@@ -27,22 +34,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const newUser = await db.insert(users).values({
+    // Create user
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await db.insert(users).values({
       email,
-      name: name || email.split('@')[0],
-      passwordHash,
-    }).returning();
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: newUser[0].id,
-        email: newUser[0].email,
-        name: newUser[0].name,
-      },
+      name,
+      passwordHash: hashedPassword,
     });
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Signup error:', error);
     return NextResponse.json(
