@@ -22,11 +22,11 @@ export const { handlers: { GET, POST }, auth, signIn, signOut } = NextAuth({
         if (!credentials?.email || !credentials?.password) return null
 
         const user = await db.query.users.findFirst({
-          where: eq(users.email, credentials.email),
+          where: eq(users.email, credentials.email as string),
         })
         if (!user || !user.passwordHash) return null
 
-        const valid = await bcrypt.compare(credentials.password, user.passwordHash)
+        const valid = await bcrypt.compare(credentials.password as string, user.passwordHash)
         if (!valid) return null
 
         return {
