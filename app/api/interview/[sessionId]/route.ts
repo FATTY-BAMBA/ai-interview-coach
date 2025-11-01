@@ -9,10 +9,14 @@ export async function GET(
 ) {
   try {
     const { sessionId } = await params;
+    
+    // Add "interview-" prefix to match database roomName format
+    const roomName = sessionId.startsWith('interview-') 
+      ? sessionId 
+      : `interview-${sessionId}`;
 
-    // Query by roomName instead of id (sessionId is actually the roomName from the URL)
     const session = await db.query.interviewSessions.findFirst({
-      where: eq(interviewSessions.roomName, sessionId),
+      where: eq(interviewSessions.roomName, roomName),
     });
 
     if (!session) {
@@ -40,7 +44,11 @@ export async function PATCH(
     const { sessionId } = await params;
     const body = await req.json();
 
-    // Query by roomName instead of id
+    // Add "interview-" prefix to match database roomName format
+    const roomName = sessionId.startsWith('interview-') 
+      ? sessionId 
+      : `interview-${sessionId}`;
+
     const updated = await db
       .update(interviewSessions)
       .set({
@@ -48,7 +56,7 @@ export async function PATCH(
         endedAt: body.status === 'completed' ? new Date() : null,
         updatedAt: new Date(),
       })
-      .where(eq(interviewSessions.roomName, sessionId))
+      .where(eq(interviewSessions.roomName, roomName))
       .returning();
 
     return NextResponse.json({ session: updated[0] });
