@@ -1,70 +1,79 @@
 'use server';
 
-import { signIn as serverSignIn, signOut as serverSignOut } from '@/lib/auth';
+import { signIn } from '@/lib/auth';
 import { AuthError } from 'next-auth';
 import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { redirect } from 'next/navigation';
 
-export async function signInWithCredentials(email: string, password: string) {
-  const e = (email ?? '').trim();
-  const p = password ?? '';
+export async function signInWithCredentials(formData: FormData) {
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
 
-  if (!e || !p) {
-    return { success: false as const, error: 'Email and password are required' };
+  if (!email || !password) {
+    return { success: false, error: 'Email and password are required' };
   }
 
   try {
-    await serverSignIn('credentials', {
-      email: e,
-      password: p,
+    await signIn('credentials', {
+      email: email.trim(),
+      password,
       redirect: false,
     });
-    return { success: true as const };
-  } catch (err) {
-    const aerr = err as AuthError;
-    const msg =
-      aerr?.type === 'CredentialsSignin'
-        ? 'Invalid email or password'
-        : aerr?.type === 'CallbackRouteError'
-        ? 'Sign-in failed. Please try again.'
-        : 'Unexpected error during sign-in';
-    return { success: false as const, error: msg };
+    redirect('/');
+  } catch (error) {
+    if (error instanceof AuthError) {
+      if (error.type === 'CredentialsSignin') {
+        return { success: false, error: 'Invalid email or password' };
+      }
+      return { success: false, error: 'Authentication failed' };
+    }
+    throw error;
   }
 }
 
-export async function signInWithGoogle(callbackUrl = '/') {
-  await serverSignIn('google', { redirectTo: callbackUrl });
+export async function signInWithGoogle() {
+  await signIn('google', { redirectTo: '/' });
 }
 
-export async function signOut() {
-  await serverSignOut({ redirectTo: '/login' });
-}
+export async function registerUser(formData: FormData) {
+  const name = formData.get('name') as string;
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
 
-export async function registerUser(name: string, email: string, password: string) {
-  const n = (name ?? '').trim();
-  const e = (email ?? '').trim();
-  const p = password ?? '';
-
-  if (!n || !e || !p) {
-    return { success: false as const, error: 'Name, email and password are required' };
-  }
-  if (p.length < 6) {
-    return { success: false as const, error: 'Password must be at least 6 characters' };
+  if (!name || !email || !password) {
+    return { success: false, error: 'All fields are required' };
   }
 
-  const existing = await db.query.users.findFirst({ where: eq(users.email, e) });
+  if (password.length < 6) {
+    return { success: false, error: 'Password must be at least 6 characters' };
+  }
+
+  const existing = await db.query.users.findFirst({
+    where: eq(users.email, email.trim()),
+  });
+  
   if (existing) {
-    return { success: false as const, error: 'Email already in use' };
+    return { success: false, error: 'Email already in use' };
   }
 
-  const passwordHash = await bcrypt.hash(p, 12);
-  await db.insert(users).values({ name: n, email: e, passwordHash });
+  const passwordHash = await bcrypt.hash(password, 12);
+  await db.insert(users).values({
+    name: name.trim(),
+    email: email.trim(),
+    passwordHash,
+  });
 
   try {
-    await serverSignIn('credentials', { email: e, password: p, redirect: false });
-  } catch {}
-
-  return { success: true as const };
+    await signIn('credentials', {
+      email: email.trim(),
+      password,
+      redirect: false,
+    });
+    redirect('/');
+  } catch {
+    return { success: true, message: 'Account created. Please sign in.' };
+  }
 }

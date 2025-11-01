@@ -1,42 +1,35 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithCredentials, signInWithGoogle } from '@/app/actions/auth';
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const handleSubmit = async (formData: FormData) => {
     setLoading(true);
     setError('');
 
-    const result = await signInWithCredentials(email, password);
+    const result = await signInWithCredentials(formData);
 
-    if (result.success) {
-      router.push('/');
-      router.refresh();
-    } else {
+    if (!result.success) {
       setError(result.error || 'Failed to sign in');
       setLoading(false);
     }
-  }
+    // Success will redirect automatically
+  };
 
-  async function handleGoogleSignIn() {
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      await signInWithGoogle(); // redirects on success
-    } catch {
+      await signInWithGoogle();
+    } catch (err) {
       setError('Google sign-in failed');
       setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
@@ -60,7 +53,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors mb-4 disabled:opacity-50"
         >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -78,18 +71,16 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
+        <form action={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email
             </label>
             <input
               id="email"
+              name="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               required
-              autoComplete="email"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="you@example.com"
             />
@@ -100,20 +91,15 @@ export default function LoginPage() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <a
-                href="mailto:support@ai-interview-coach.com?subject=Password Reset"
-                className="text-sm text-indigo-600 hover:text-indigo-700"
-              >
+              <a href="mailto:support@ai-interview-coach.com?subject=Password Reset" className="text-sm text-indigo-600 hover:text-indigo-700">
                 Forgot password?
               </a>
             </div>
             <input
               id="password"
+              name="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="••••••••"
             />
@@ -121,7 +107,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || !email || !password}
+            disabled={loading}
             className="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
             {loading ? 'Signing in...' : 'Sign In'}
