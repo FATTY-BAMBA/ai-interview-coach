@@ -1,21 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Avoid build blocking on minor issues
+  experimental: {
+    runtime: 'nodejs', // 👈 Forces Node runtime by default
+  },
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
-
-  // ✅ Fix for Vercel build crashes (transpile ESM packages)
   transpilePackages: [
+    'next-auth',
+    'bcryptjs',
+    'drizzle-orm',
     '@livekit/components-react',
     '@livekit/components-styles',
     'livekit-client',
     'livekit-server-sdk',
   ],
-
-  // 🕵️ Temporarily disable minifier to surface the true build error
-  swcMinify: false,
-
-  // Optional — helps debug production stack traces
   productionBrowserSourceMaps: true,
 };
 
