@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get interview session
     const session = await db.query.interviewSessions.findFirst({
       where: eq(interviewSessions.id, sessionId),
     });
@@ -31,7 +30,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get conversation transcript
     const transcript = await db.query.conversationTurns.findMany({
       where: eq(conversationTurns.sessionId, sessionId),
       orderBy: (conversationTurns, { asc }) => [asc(conversationTurns.timestamp)],
@@ -44,19 +42,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Format transcript for GPT-4
     const formattedTranscript = transcript
       .map((turn) => `${turn.role === 'user' ? 'Candidate' : 'Interviewer'}: ${turn.text}`)
       .join('\n\n');
 
-    // Generate evaluation using GPT-4
     const evaluation = await generateEvaluation(
       formattedTranscript,
       session.interviewType,
-      session.targetRole
+      session.targetRole || 'Software Engineer'
     );
 
-    // Save evaluation to database
     const savedEvaluation = await db.insert(evaluationReports).values({
       sessionId: sessionId,
       overallScore: evaluation.overallScore,
