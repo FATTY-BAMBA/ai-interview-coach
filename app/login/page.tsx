@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { signInWithCredentials, signInWithGoogle } from '@/app/actions/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,22 +17,23 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    try {
-      const response = await fetch('/api/auth/callback/credentials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+    const result = await signInWithCredentials(email, password);
 
-      if (response.ok) {
-        router.push('/');
-        router.refresh();
-      } else {
-        setError('Invalid email or password');
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
-    } finally {
+    if (result.success) {
+      router.push('/');
+      router.refresh();
+    } else {
+      setError(result.error || 'Failed to sign in');
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      await signInWithGoogle();
+    } catch {
+      setError('Google sign-in failed');
       setLoading(false);
     }
   };
@@ -53,10 +55,10 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Google Sign-In Link */}
-        <Link
-          href="/api/auth/signin/google"
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors mb-4"
+        <button
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors mb-4 disabled:opacity-50"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -65,7 +67,7 @@ export default function LoginPage() {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
           <span className="font-medium text-gray-700">Continue with Google</span>
-        </Link>
+        </button>
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
@@ -87,7 +89,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="you@example.com"
             />
           </div>
@@ -97,7 +99,7 @@ export default function LoginPage() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <a href="mailto:support@ai-interview-coach.com?subject=Password Reset Request" className="text-sm text-indigo-600 hover:text-indigo-700">
+              <a href="mailto:support@ai-interview-coach.com?subject=Password Reset" className="text-sm text-indigo-600 hover:text-indigo-700">
                 Forgot password?
               </a>
             </div>
@@ -107,7 +109,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="••••••••"
             />
           </div>
@@ -115,7 +117,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
@@ -123,7 +125,7 @@ export default function LoginPage() {
 
         <div className="mt-6 text-center">
           <p className="text-gray-600">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/signup" className="text-indigo-600 hover:text-indigo-700 font-semibold">
               Sign up
             </Link>
