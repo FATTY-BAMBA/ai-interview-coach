@@ -45,7 +45,6 @@ export default function SignupPage() {
         return;
       }
 
-      // After signup, try to login via direct redirect
       window.location.href = `/api/auth/signin?email=${encodeURIComponent(email)}`;
     } catch (err) {
       setError('An error occurred. Please try again.');

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -18,17 +17,17 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
+      const response = await fetch('/api/auth/callback/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (result?.error) {
-        setError('Invalid email or password');
-      } else {
+      if (response.ok) {
         router.push('/');
         router.refresh();
+      } else {
+        setError('Invalid email or password');
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -37,20 +36,13 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      await signIn('google', { callbackUrl: '/' });
-    } catch (err) {
-      setError('Failed to sign in with Google');
-      setLoading(false);
-    }
+  const handleGoogleSignIn = () => {
+    window.location.href = '/api/auth/signin/google';
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-        {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">🎤</span>
@@ -59,14 +51,12 @@ export default function LoginPage() {
           <p className="text-gray-600">Sign in to continue practicing interviews</p>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
             {error}
           </div>
         )}
 
-        {/* Google Sign In */}
         <button
           onClick={handleGoogleSignIn}
           disabled={loading}
@@ -81,7 +71,6 @@ export default function LoginPage() {
           <span className="font-medium text-gray-700">Continue with Google</span>
         </button>
 
-        {/* Divider */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
@@ -91,7 +80,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -109,9 +97,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <a href="mailto:support@ai-interview-coach.com?subject=Password Reset Request" className="text-sm text-indigo-600 hover:text-indigo-700">
+                Forgot password?
+              </a>
+            </div>
             <input
               id="password"
               type="password"
@@ -132,7 +125,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Divider */}
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             Don't have an account?{' '}
