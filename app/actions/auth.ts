@@ -1,4 +1,4 @@
-'use server';  // Put this back at the top
+'use server';
 
 import { signIn as serverSignIn, signOut as serverSignOut } from '@/lib/auth';
 import { AuthError } from 'next-auth';
@@ -7,14 +7,8 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
-function clean(s: string) {
-  return (s ?? '').trim();
-}
-
 export async function signInWithCredentials(email: string, password: string) {
-  // Remove the inline 'use server' directive
-  
-  const e = clean(email);
+  const e = (email ?? '').trim();
   const p = password ?? '';
 
   if (!e || !p) {
@@ -41,22 +35,16 @@ export async function signInWithCredentials(email: string, password: string) {
 }
 
 export async function signInWithGoogle(callbackUrl = '/') {
-  // Remove the inline 'use server' directive
-  
   await serverSignIn('google', { redirectTo: callbackUrl });
 }
 
 export async function signOut() {
-  // Remove the inline 'use server' directive
-  
   await serverSignOut({ redirectTo: '/login' });
 }
 
 export async function registerUser(name: string, email: string, password: string) {
-  // Remove the inline 'use server' directive
-  
-  const n = clean(name);
-  const e = clean(email);
+  const n = (name ?? '').trim();
+  const e = (email ?? '').trim();
   const p = password ?? '';
 
   if (!n || !e || !p) {
