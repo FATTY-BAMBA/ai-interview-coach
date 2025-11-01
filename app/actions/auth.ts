@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 'use server';
 
 import { signIn as serverSignIn, signOut as serverSignOut } from '@/lib/auth';
