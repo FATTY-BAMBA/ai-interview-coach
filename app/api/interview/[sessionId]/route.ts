@@ -10,8 +10,9 @@ export async function GET(
   try {
     const { sessionId } = await params;
 
+    // Query by roomName instead of id (sessionId is actually the roomName from the URL)
     const session = await db.query.interviewSessions.findFirst({
-      where: eq(interviewSessions.id, sessionId),
+      where: eq(interviewSessions.roomName, sessionId),
     });
 
     if (!session) {
@@ -39,6 +40,7 @@ export async function PATCH(
     const { sessionId } = await params;
     const body = await req.json();
 
+    // Query by roomName instead of id
     const updated = await db
       .update(interviewSessions)
       .set({
@@ -46,7 +48,7 @@ export async function PATCH(
         endedAt: body.status === 'completed' ? new Date() : null,
         updatedAt: new Date(),
       })
-      .where(eq(interviewSessions.id, sessionId))
+      .where(eq(interviewSessions.roomName, sessionId))
       .returning();
 
     return NextResponse.json({ session: updated[0] });
