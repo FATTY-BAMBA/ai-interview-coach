@@ -1,7 +1,5 @@
 'use server';
 
-export const runtime = 'nodejs';
-
 import { signIn as serverSignIn, signOut as serverSignOut } from '@/lib/auth';
 import { AuthError } from 'next-auth';
 import bcrypt from 'bcryptjs';

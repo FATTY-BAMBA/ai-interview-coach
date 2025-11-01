@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
@@ -14,7 +16,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if user exists
     const existingUser = await db.query.users.findFirst({
       where: (users, { eq }) => eq(users.email, email),
     });
@@ -26,10 +27,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user
     const newUser = await db.insert(users).values({
       email,
       name: name || email.split('@')[0],
