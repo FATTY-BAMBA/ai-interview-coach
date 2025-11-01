@@ -1,0 +1,14 @@
+[Unit]
+Description=LiveKit Interview Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/workspace/ai-interview-coach/python-agent
+ExecStart=/workspace/ai-interview-coach/python-agent/venv/bin/python agent.py start
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
