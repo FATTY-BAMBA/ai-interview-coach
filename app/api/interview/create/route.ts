@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/app/api/auth/[...nextauth]/route';
 import { db } from '@/lib/db';
-import { interviewSessions } from '@/lib/db/schema';
+import { interviewSessions, users } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 export async function POST(req: NextRequest) {
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await db.query.users.findFirst({
-      where: (users, { eq }) => eq(users.email, session.user.email!),
+      where: eq(users.email, session.user.email),
     });
 
     if (!user) {
