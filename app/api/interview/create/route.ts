@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       status: 'scheduled',
     }).returning();
 
-    // Dispatch agent to the room!
+    // Create LiveKit room
     try {
       const livekitHost = process.env.LIVEKIT_URL || '';
       const apiKey = process.env.LIVEKIT_API_KEY || '';
@@ -60,28 +60,32 @@ export async function POST(req: NextRequest) {
       
       await roomService.createRoom({
         name: roomName,
-        emptyTimeout: 300, // 5 minutes
+        emptyTimeout: 300,
         maxParticipants: 10,
       });
 
-      console.log(`✅ Created room: ${roomName}`);
+      console.log(`✅ Created LiveKit room: ${roomName}`);
       
-      // Request agent dispatch
-      await fetch(`${livekitHost}/twirp/livekit.AgentDispatchService/CreateDispatch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}:${apiSecret}`,
-        },
-        body: JSON.stringify({
-          room: roomName,
-          agent_name: 'BilingualInterviewCoach',
-        }),
-      }).catch(e => console.log('Dispatch request error (expected for self-hosted):', e.message));
+      // NOTIFY AGENT TO JOIN ROOM
+      try {
+        const agentResponse = await fetch('https://python-agent-snowy-tree-6698.fly.dev/join-room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ room_name: roomName }),
+        });
+        
+        if (agentResponse.ok) {
+          console.log(`🤖 Agent notified to join room: ${roomName}`);
+        } else {
+          console.error(`⚠️ Agent notification failed:`, await agentResponse.text());
+        }
+      } catch (agentError) {
+        console.error('⚠️ Error notifying agent:', agentError);
+        // Don't fail the request - room still works without agent initially
+      }
       
     } catch (error) {
       console.error('Error with LiveKit setup:', error);
-      // Don't fail the request, room will still work
     }
 
     return NextResponse.json({
