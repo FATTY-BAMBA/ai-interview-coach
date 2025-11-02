@@ -1,4 +1,3 @@
-// app/api/interview/create/route.ts
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -7,6 +6,7 @@ import { db } from '@/lib/db';
 import { interviewSessions, users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { RoomServiceClient } from 'livekit-server-sdk';
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,6 +49,40 @@ export async function POST(req: NextRequest) {
       difficulty: 'medium',
       status: 'scheduled',
     }).returning();
+
+    // Dispatch agent to the room!
+    try {
+      const livekitHost = process.env.LIVEKIT_URL || '';
+      const apiKey = process.env.LIVEKIT_API_KEY || '';
+      const apiSecret = process.env.LIVEKIT_API_SECRET || '';
+      
+      const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
+      
+      await roomService.createRoom({
+        name: roomName,
+        emptyTimeout: 300, // 5 minutes
+        maxParticipants: 10,
+      });
+
+      console.log(`✅ Created room: ${roomName}`);
+      
+      // Request agent dispatch
+      await fetch(`${livekitHost}/twirp/livekit.AgentDispatchService/CreateDispatch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}:${apiSecret}`,
+        },
+        body: JSON.stringify({
+          room: roomName,
+          agent_name: 'BilingualInterviewCoach',
+        }),
+      }).catch(e => console.log('Dispatch request error (expected for self-hosted):', e.message));
+      
+    } catch (error) {
+      console.error('Error with LiveKit setup:', error);
+      // Don't fail the request, room will still work
+    }
 
     return NextResponse.json({
       success: true,
