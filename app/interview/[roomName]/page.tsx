@@ -89,7 +89,16 @@ export default function InterviewPage() {
       }
 
       const data = await response.json();
+      console.log('Token response:', { hasToken: !!data.token, tokenType: typeof data.token, tokenLength: data.token?.length });
+      
+      // Ensure token is a string
+      if (typeof data.token !== 'string') {
+        console.error('Invalid token type:', typeof data.token, data.token);
+        throw new Error('Invalid token format received');
+      }
+
       setToken(data.token);
+      console.log('Token set successfully, length:', data.token.length);
     } catch (err: any) {
       console.error('Error fetching room token:', err);
       setError(err.message || 'Failed to join interview');
@@ -126,6 +135,16 @@ export default function InterviewPage() {
           >
             Back to Home
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 text-lg">Waiting for token...</p>
         </div>
       </div>
     );
