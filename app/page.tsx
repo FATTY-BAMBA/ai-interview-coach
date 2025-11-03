@@ -147,54 +147,53 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Why Choose LyraAI - Clean Professional Design */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+      {/* Why Choose LyraAI - Matching the design from screenshot */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Why Choose LyraAI?</h2>
             <p className="text-lg text-gray-600">Powered by cutting-edge AI technology</p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-12">
-            {[
-              {
-                title: 'Voice-Based Interviews',
-                description: 'Natural conversation with AI using advanced speech recognition and text-to-speech technology',
-                icon: (
-                  <svg className="w-12 h-12 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="grid md:grid-cols-3 gap-12 max-w-6xl mx-auto">
+            {/* Voice-Based */}
+            <div className="text-center">
+              <div className="flex justify-center mb-6">
+                <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-16 h-16 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
-                ),
-              },
-              {
-                title: 'AI-Powered Feedback',
-                description: 'Get detailed evaluation and personalized recommendations after each interview session',
-                icon: (
-                  <svg className="w-12 h-12 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Voice-Based</h3>
+              <p className="text-gray-600 text-lg leading-relaxed">Practice with real voice conversations, just like a real interview</p>
+            </div>
+
+            {/* AI Feedback */}
+            <div className="text-center">
+              <div className="flex justify-center mb-6">
+                <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-16 h-16 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                ),
-              },
-              {
-                title: 'Bilingual Support',
-                description: 'Practice in English or Traditional Chinese (繁體中文) - AI seamlessly adapts to your language',
-                icon: (
-                  <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">AI Feedback</h3>
+              <p className="text-gray-600 text-lg leading-relaxed">Get detailed evaluation reports with scores and improvements</p>
+            </div>
+
+            {/* Bilingual Support */}
+            <div className="text-center">
+              <div className="flex justify-center mb-6">
+                <div className="w-32 h-32 bg-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-16 h-16 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                   </svg>
-                ),
-              },
-            ].map((feature, idx) => (
-              <div key={idx} className="text-center">
-                <div className="flex justify-center mb-6">
-                  <div className="p-4 bg-gray-50 rounded-2xl">
-                    {feature.icon}
-                  </div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{feature.description}</p>
               </div>
-            ))}
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Bilingual Support</h3>
+              <p className="text-gray-600 text-lg leading-relaxed">Practice in English or Traditional Chinese (Taiwan)</p>
+            </div>
           </div>
         </div>
       </section>
