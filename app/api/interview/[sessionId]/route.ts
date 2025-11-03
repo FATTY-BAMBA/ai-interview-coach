@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { interviewSessions } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { interviewSessions, conversationTurns } from '@/lib/db/schema';
+import { eq, desc } from 'drizzle-orm';
 
 export async function GET(
   req: NextRequest,
@@ -10,13 +10,14 @@ export async function GET(
   try {
     const { sessionId } = await params;
     
-    // Add "interview-" prefix to match database roomName format
-    const roomName = sessionId.startsWith('interview-') 
-      ? sessionId 
-      : `interview-${sessionId}`;
-
+    // Query session with transcripts
     const session = await db.query.interviewSessions.findFirst({
-      where: eq(interviewSessions.roomName, roomName),
+      where: eq(interviewSessions.id, sessionId),
+      with: {
+        conversationTurns: {
+          orderBy: [desc(conversationTurns.timestamp)],
+        },
+      },
     });
 
     if (!session) {
@@ -26,7 +27,19 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ session });
+    // Format transcripts for frontend
+    const transcripts = session.conversationTurns.map((turn: any) => ({
+      speaker: turn.role === 'assistant' ? 'ai' : 'user',
+      text: turn.text,
+      timestamp: turn.timestamp,
+    }));
+
+    return NextResponse.json({ 
+      session: {
+        ...session,
+        transcripts,
+      }
+    });
   } catch (error) {
     console.error('Error fetching session:', error);
     return NextResponse.json(
@@ -44,11 +57,6 @@ export async function PATCH(
     const { sessionId } = await params;
     const body = await req.json();
 
-    // Add "interview-" prefix to match database roomName format
-    const roomName = sessionId.startsWith('interview-') 
-      ? sessionId 
-      : `interview-${sessionId}`;
-
     const updated = await db
       .update(interviewSessions)
       .set({
@@ -56,7 +64,7 @@ export async function PATCH(
         endedAt: body.status === 'completed' ? new Date() : null,
         updatedAt: new Date(),
       })
-      .where(eq(interviewSessions.roomName, roomName))
+      .where(eq(interviewSessions.id, sessionId))
       .returning();
 
     return NextResponse.json({ session: updated[0] });
