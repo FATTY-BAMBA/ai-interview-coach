@@ -11,8 +11,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/signup', '/api/auth'];
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  const publicRoutes = ['/', '/login', '/signup', '/api/auth'];
+  const isPublicRoute = publicRoutes.some(route => pathname === route || pathname.startsWith(route));
 
   // If not logged in and trying to access protected route, redirect to login
   if (!token && !isPublicRoute) {
@@ -20,9 +20,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // If logged in and trying to access login/signup, redirect to home
+  // If logged in and trying to access login/signup, redirect to dashboard
   if (token && (pathname === '/login' || pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return NextResponse.next();
@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/',
+    '/dashboard',
     '/interview/:path*',
     '/evaluation/:path*',
     '/login',
