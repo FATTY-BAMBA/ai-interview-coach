@@ -158,11 +158,22 @@ export default function InterviewPage() {
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="text-3xl">{typeInfo.icon}</div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">{typeInfo.name}</h1>
-                <p className="text-sm text-gray-500">Room: {roomName}</p>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-lg font-bold">L</span>
+                </div>
+                <span className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  LyraAI
+                </span>
+              </div>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <div className="flex items-center space-x-3">
+                <div className="text-3xl">{typeInfo.icon}</div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">{typeInfo.name}</h1>
+                  <p className="text-sm text-gray-500">Room: {roomName}</p>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">

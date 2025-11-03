@@ -1,0 +1,18 @@
+agent_name: BilingualInterviewCoach
+entrypoint: agent.py
+runtime: python
+python_version: "3.11"
+
+environment:
+  OPENAI_API_KEY: $OPENAI_API_KEY
+  NEXT_PUBLIC_APP_URL: https://ai-interview-coach-rust.vercel.app
+  LOG_LEVEL: INFO
+
+resources:
+  cpu: 1
+  memory: 1Gi
+
+auto_disconnect: 300
+
+dispatch:
+  room_prefix: interview-

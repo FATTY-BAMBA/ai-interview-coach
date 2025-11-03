@@ -158,7 +158,7 @@ export default function EvaluationPage() {
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold text-gray-900">Interview Evaluation Report</h1>
+            <h1 className="text-3xl font-bold text-gray-900">LyraAI - Interview Evaluation Report</h1>
             <div className="text-sm text-gray-500">
               {new Date(evaluation.generatedAt).toLocaleDateString()}
             </div>

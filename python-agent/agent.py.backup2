@@ -196,7 +196,7 @@ def setup_logging():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     log = logging.getLogger("agent")
-    log.info("Starting LyraAI Interview Coach | pid=%s", os.getpid())
+    log.info("Starting Bilingual InterviewCoach | pid=%s", os.getpid())
     return log
 
 
@@ -355,31 +355,42 @@ async def entrypoint(ctx: JobContext):
                 session.set_tts(desired)
                 log.debug("🔊 TTS -> %s", "zh-TW" if lang == "zh-tw" else "EN")
 
-    # Subscribe to user transcript events using proper event API
-    from livekit.agents import UserInputTranscribedEvent
-    
-    def handle_user_transcript(event):
-        """Handle user speech transcription"""
-        try:
-            text = event.text if hasattr(event, "text") else str(event)
-            
-            if not should_process(text):
-                return
-            
-            heard_anything["flag"] = True
-            counters["last_user_ts"] = time.perf_counter()
-            
-            lang = detect_lang_variant(text)
-            _apply_lang(lang)
-            
-            enqueue_transcript(session_id, "user", text)
-            log.debug(f"👤 User: {text[:100]}")
-        except Exception as e:
-            log.error(f"Error in transcript handler: {e}")
-    
-    # Register event handler
-    session.on(UserInputTranscribedEvent, handle_user_transcript)
-    log.info("✅ User transcript event handler registered")
+    hooked = False
+    for attr in ("on_user_transcript", "on_transcript"):
+        if hasattr(session, attr):
+            try:
+                cb = getattr(session, attr)
+
+                def _listener(*args, **kwargs):
+                    text = None
+                    if args and isinstance(args[0], str):
+                        text = args[0]
+                    elif args:
+                        text = getattr(args[0], "text", str(args[0]))
+                    text = text or kwargs.get("text") or ""
+                    
+                    if not should_process(text):
+                        return
+
+                    heard_anything["flag"] = True
+                    counters["last_user_ts"] = time.perf_counter()
+
+                    lang = detect_lang_variant(text)
+                    _apply_lang(lang)
+
+                    enqueue_transcript(session_id, "user", text)
+
+                result = cb(_listener)
+                if asyncio.iscoroutine(result):
+                    await result
+                log.info("✅ User transcript hook attached via %s", attr)
+                hooked = True
+                break
+            except Exception as e:
+                log.debug("Hook %s failed: %s", attr, e)
+
+    if not hooked:
+        log.info("⚠️ Transcript hook not available")
 
     async def send_initial_greeting():
         await asyncio.sleep(2)
@@ -449,6 +460,6 @@ if __name__ == "__main__":
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
-            agent_name="LyraAI",
+            agent_name="InterviewCoach",
         )
     )

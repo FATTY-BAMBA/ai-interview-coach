@@ -196,7 +196,7 @@ def setup_logging():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     log = logging.getLogger("agent")
-    log.info("Starting LyraAI Interview Coach | pid=%s", os.getpid())
+    log.info("Starting Bilingual InterviewCoach | pid=%s", os.getpid())
     return log
 
 
@@ -449,6 +449,6 @@ if __name__ == "__main__":
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
-            agent_name="LyraAI",
+            agent_name="InterviewCoach",
         )
     )
