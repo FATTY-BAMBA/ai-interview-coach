@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, timestamp, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 
 // Users table - simplified for our needs
 export const users = pgTable('users', {
@@ -49,3 +50,31 @@ export const evaluationReports = pgTable('evaluation_reports', {
   detailedFeedback: text('detailed_feedback').notNull(),
   generatedAt: timestamp('generated_at').defaultNow().notNull(),
 });
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  interviewSessions: many(interviewSessions),
+}));
+
+export const interviewSessionsRelations = relations(interviewSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [interviewSessions.userId],
+    references: [users.id],
+  }),
+  conversationTurns: many(conversationTurns),
+  evaluationReports: many(evaluationReports),
+}));
+
+export const conversationTurnsRelations = relations(conversationTurns, ({ one }) => ({
+  session: one(interviewSessions, {
+    fields: [conversationTurns.sessionId],
+    references: [interviewSessions.id],
+  }),
+}));
+
+export const evaluationReportsRelations = relations(evaluationReports, ({ one }) => ({
+  session: one(interviewSessions, {
+    fields: [evaluationReports.sessionId],
+    references: [interviewSessions.id],
+  }),
+}));
