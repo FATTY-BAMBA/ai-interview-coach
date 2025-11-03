@@ -108,9 +108,62 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* Key Features Section */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose LyraAI?</h2>
+            <p className="text-lg text-gray-600">Powered by cutting-edge AI technology</p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: '🎤',
+                title: 'Voice-Based Interviews',
+                description: 'Natural conversation with AI using advanced speech recognition and text-to-speech',
+                gradient: 'from-blue-500 to-cyan-500',
+              },
+              {
+                icon: '🤖',
+                title: 'AI-Powered Feedback',
+                description: 'Get detailed evaluation and personalized recommendations after each interview',
+                gradient: 'from-purple-500 to-pink-500',
+              },
+              {
+                icon: '🌏',
+                title: 'Bilingual Support',
+                description: 'Practice in English or Traditional Chinese (繁體中文) - AI adapts to your language',
+                gradient: 'from-orange-500 to-red-500',
+              },
+            ].map((feature, idx) => (
+              <div
+                key={idx}
+                className="relative group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300 rounded-2xl" 
+                     style={{background: `linear-gradient(to right, var(--tw-gradient-stops))`}}></div>
+                <div className="relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-2 border border-gray-100">
+                  <div className={`w-16 h-16 bg-gradient-to-r ${feature.gradient} rounded-xl flex items-center justify-center text-4xl mb-4`}>
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
+                  <p className="text-gray-600">{feature.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Interview Types */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Choose Your Interview Type</h2>
+            <p className="text-lg text-gray-600">Practice for any interview scenario</p>
+          </div>
+          
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               {
@@ -136,7 +189,7 @@ export default function Home() {
             ].map((feature, idx) => (
               <div
                 key={idx}
-                className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-1"
+                className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-1 border border-gray-100"
               >
                 <div className="text-4xl mb-4">{feature.icon}</div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">{feature.title}</h3>
