@@ -69,13 +69,15 @@ export default function InterviewPage() {
 
   const fetchRoomToken = async () => {
     try {
-      const extractedSessionId = roomName.replace('interview-', '');
-      setSessionId(extractedSessionId);
-
-      const sessionResponse = await fetch(`/api/interview/${extractedSessionId}`);
+      // FIXED: Fetch real session UUID using room name
+      const sessionResponse = await fetch(`/api/interview/by-room/${roomName}`);
       if (sessionResponse.ok) {
         const sessionData = await sessionResponse.json();
+        const realSessionId = sessionData.session.id;
+        setSessionId(realSessionId); // Use real UUID!
         setInterviewType(sessionData.session.interviewType || 'behavioral');
+      } else {
+        throw new Error('Failed to fetch session data');
       }
 
       const response = await fetch('/api/livekit/token', {
@@ -91,7 +93,6 @@ export default function InterviewPage() {
       const data = await response.json();
       console.log('Token response:', { hasToken: !!data.token, tokenType: typeof data.token, tokenLength: data.token?.length });
       
-      // Ensure token is a string
       if (typeof data.token !== 'string') {
         console.error('Invalid token type:', typeof data.token, data.token);
         throw new Error('Invalid token format received');
