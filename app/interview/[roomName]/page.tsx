@@ -45,7 +45,7 @@ function InterviewControls({ sessionId, transcripts }: { sessionId: string; tran
     }
   };
 
-  // Auto-scroll transcript
+  // Auto-scroll transcript to bottom
   useEffect(() => {
     const container = document.getElementById('transcript-container');
     if (container) {
@@ -88,7 +88,7 @@ function InterviewControls({ sessionId, transcripts }: { sessionId: string; tran
                   }`}
                 >
                   <p className="text-xs font-semibold mb-1 opacity-70">
-                    {transcript.speaker === 'user' ? 'You' : 'AI Interviewer'}
+                    {transcript.speaker === 'user' ? 'You' : 'LyraAI'}
                   </p>
                   <p className="text-sm">{transcript.text}</p>
                 </div>
@@ -136,12 +136,17 @@ export default function InterviewPage() {
         if (response.ok) {
           const data = await response.json();
           if (data.session?.transcripts) {
-            const formattedTranscripts = data.session.transcripts.map((t: any) => ({
-              speaker: t.speaker,
-              text: t.text,
-              timestamp: new Date(t.timestamp),
-            }));
-            setTranscripts(formattedTranscripts);
+            // Sort by timestamp (oldest first)
+            const sortedTranscripts = data.session.transcripts
+              .map((t: any) => ({
+                speaker: t.speaker,
+                text: t.text,
+                timestamp: new Date(t.timestamp),
+              }))
+              .sort((a: Transcript, b: Transcript) => 
+                a.timestamp.getTime() - b.timestamp.getTime()
+              );
+            setTranscripts(sortedTranscripts);
           }
         }
       } catch (error) {

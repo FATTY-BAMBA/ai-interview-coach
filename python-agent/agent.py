@@ -18,6 +18,7 @@ from livekit.agents import (
     JobContext,
     WorkerOptions,
     cli,
+    ConversationItemAddedEvent,
 )
 from livekit.plugins import openai, silero
 
@@ -55,9 +56,6 @@ API_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
 API_TOKEN = os.getenv("API_TOKEN")
 
 SILENCE_MAX_WAIT_S = float(os.getenv("SILENCE_MAX_WAIT_S", "8"))
-SECOND_NUDGE_S = float(os.getenv("SECOND_NUDGE_S", "20"))
-SILENCE_NUDGE_ENABLED = os.getenv("SILENCE_NUDGE_ENABLED", "true").lower() == "true"
-
 DISCONNECT_GRACE_S = float(os.getenv("DISCONNECT_GRACE_S", "60"))
 
 # ---------- INTERVIEW TYPE PROMPTS ----------
@@ -202,12 +200,11 @@ def setup_logging():
 
 # ---------- AGENT ----------
 class InterviewCoach(Agent):
-    def __init__(self, session_id: str, interview_type: str, transcript_callback):
+    def __init__(self, session_id: str, interview_type: str):
         system_prompt = PROMPTS.get(interview_type, PROMPTS["behavioral"])
         super().__init__(instructions=system_prompt)
         self.session_id = session_id
         self.interview_type = interview_type
-        self.transcript_callback = transcript_callback
 
 
 # ---------- HELPERS ----------
@@ -242,7 +239,7 @@ _transcript_q = deque(maxlen=1000)
 
 def enqueue_transcript(session_id: str, role: str, text: str):
     _transcript_q.append({"sessionId": session_id, "role": role, "text": text})
-    logging.getLogger("agent").debug("💬 Queued %s message: %s...", role, text[:50])
+    logging.getLogger("agent").info(f"💬 Queued {role}: {text[:80]}")
 
 async def _flush_transcripts():
     async with httpx.AsyncClient(timeout=5.0) as client:
@@ -256,14 +253,13 @@ async def _flush_transcripts():
                             json=item,
                             headers=({"Authorization": f"Bearer {API_TOKEN}"} if API_TOKEN else {}),
                         )
-                        if r.status_code < 500:
-                            if r.status_code == 200:
-                                logging.getLogger("agent").debug("💾 Saved %s message", item["role"])
-                            else:
-                                logging.getLogger("agent").warning("Transcript write non-200: %s", r.status_code)
+                        if r.status_code == 200:
+                            logging.getLogger("agent").info(f"💾 Saved {item['role']}: {item['text'][:50]}")
+                            break
+                        elif r.status_code < 500:
                             break
                     except Exception as e:
-                        logging.getLogger("agent").debug("Transcript save attempt %d failed: %s", attempt + 1, e)
+                        logging.getLogger("agent").debug(f"Transcript save attempt {attempt + 1} failed: {e}")
                     await asyncio.sleep(0.3 * (2**attempt))
             else:
                 await asyncio.sleep(0.05)
@@ -290,7 +286,6 @@ async def fetch_session_by_room(room_name: str) -> tuple[str, str]:
     except Exception as e:
         log.warning(f"Failed to fetch session by room: {e}")
     
-    # Fallback
     return str(uuid.uuid4()), "behavioral"
 
 
@@ -300,20 +295,19 @@ async def entrypoint(ctx: JobContext):
 
     room_name = ctx.room.name or ""
     
-    # NEW: Fetch real session ID from database using room name
     session_id, interview_type = await fetch_session_by_room(room_name)
 
     await ctx.connect(auto_subscribe="audio_only")
     log.info("✅ Connected to room: %s (session: %s)", room_name, session_id)
 
     stt = openai.STT(model=STT_MODEL)
-    llm = openai.LLM(model=LLM_MODEL)
+    llm_instance = openai.LLM(model=LLM_MODEL)
     tts_en = openai.TTS(voice=TTS_VOICE_EN)
     tts_zh_tw = openai.TTS(voice=TTS_VOICE_ZH_TW)
 
     session = AgentSession(
         stt=stt,
-        llm=llm,
+        llm=llm_instance,
         tts=tts_en,
         vad=silero.VAD.load(),
     )
@@ -322,13 +316,26 @@ async def entrypoint(ctx: JobContext):
         if hasattr(session, "set_barge_in"):
             session.set_barge_in(True)
 
+    # Subscribe to conversation items (THIS IS THE KEY!)
+    @session.on("conversation_item_added")
+    def on_conversation_item(event: ConversationItemAddedEvent):
+        """Capture both user and agent messages"""
+        try:
+            role = event.item.role  # "user" or "assistant"
+            text = event.item.text_content
+            
+            if text and should_process(text):
+                enqueue_transcript(session_id, role, text)
+                log.info(f"{'👤' if role == 'user' else '🤖'} {role.capitalize()}: {text[:100]}")
+        except Exception as e:
+            log.error(f"Error in conversation_item handler: {e}")
+
+    log.info("✅ Subscribed to conversation_item_added events")
+
     asyncio.create_task(_flush_transcripts())
 
-    async def save_transcript(session_id: str, role: str, text: str):
-        enqueue_transcript(session_id, role, text)
-
     rio = build_room_input_options()
-    agent = InterviewCoach(session_id, interview_type, save_transcript)
+    agent = InterviewCoach(session_id, interview_type)
     
     if rio:
         await session.start(room=ctx.room, agent=agent, room_input_options=rio)
@@ -339,7 +346,6 @@ async def entrypoint(ctx: JobContext):
 
     current_lang = None
     heard_anything = {"flag": False}
-    counters = {"start_ts": time.perf_counter(), "last_user_ts": None}
 
     def _apply_lang(lang: str):
         nonlocal current_lang
@@ -353,87 +359,46 @@ async def entrypoint(ctx: JobContext):
         with suppress(Exception):
             if hasattr(session, "set_tts"):
                 session.set_tts(desired)
-                log.debug("🔊 TTS -> %s", "zh-TW" if lang == "zh-tw" else "EN")
 
-    # Subscribe to user transcript events using proper event API
-    from livekit.agents import UserInputTranscribedEvent
-    
-    def handle_user_transcript(event):
-        """Handle user speech transcription"""
-        try:
-            text = event.text if hasattr(event, "text") else str(event)
-            
-            if not should_process(text):
-                return
-            
-            heard_anything["flag"] = True
-            counters["last_user_ts"] = time.perf_counter()
-            
-            lang = detect_lang_variant(text)
-            _apply_lang(lang)
-            
-            enqueue_transcript(session_id, "user", text)
-            log.debug(f"👤 User: {text[:100]}")
-        except Exception as e:
-            log.error(f"Error in transcript handler: {e}")
-    
-    # Register event handler
-    session.on(UserInputTranscribedEvent, handle_user_transcript)
-    log.info("✅ User transcript event handler registered")
-
+    # Smart bilingual greeting
     async def send_initial_greeting():
         await asyncio.sleep(2)
         
-        # Bilingual greeting based on interview type
         greeting_zh = GREETINGS[interview_type]["zh-tw"]
         greeting_en = GREETINGS[interview_type]["en"]
-        greeting = f"{greeting_zh} | {greeting_en}"
         
-        enqueue_transcript(session_id, "assistant", greeting)
-        
+        # Say Chinese first
+        enqueue_transcript(session_id, "assistant", greeting_zh)
         with suppress(Exception):
             if hasattr(session, "say"):
-                await session.say(greeting, allow_interruptions=True)
-            log.info(f"🤖 Sent {interview_type} greeting")
+                await session.say(greeting_zh, allow_interruptions=True)
+        log.info(f"🤖 Sent {interview_type} greeting (ZH)")
+        
+        # Wait 3 seconds for user response
+        await asyncio.sleep(3)
+        
+        # If no response, also say English
+        if not heard_anything["flag"]:
+            enqueue_transcript(session_id, "assistant", greeting_en)
+            with suppress(Exception):
+                if hasattr(session, "say"):
+                    await session.say(greeting_en, allow_interruptions=True)
+            log.info(f"🤖 Added English greeting")
 
     if not LISTEN_FIRST:
         asyncio.create_task(send_initial_greeting())
 
     async def _silence_nudge():
-        if not SILENCE_NUDGE_ENABLED:
-            return
         await asyncio.sleep(SILENCE_MAX_WAIT_S)
-        if not heard_anything["flag"]:
-            greeting_zh = GREETINGS[interview_type]["zh-tw"]
-            greeting_en = GREETINGS[interview_type]["en"]
-            msg = f"{greeting_zh} {greeting_en}"
-            enqueue_transcript(session_id, "assistant", msg)
-            with suppress(Exception):
-                if hasattr(session, "say"):
-                    await session.say(msg)
-            log.info("🔔 Sent silence nudge")
-
-    async def _second_nudge():
-        if not SILENCE_NUDGE_ENABLED:
-            return
-        await asyncio.sleep(SECOND_NUDGE_S)
         if not heard_anything["flag"]:
             msg = f"{MIC_TIP_ZH_TW} {MIC_TIP_EN}"
             enqueue_transcript(session_id, "assistant", msg)
             with suppress(Exception):
                 if hasattr(session, "say"):
                     await session.say(msg)
-            log.info("🎤 Sent mic tip")
+            log.info("🔔 Sent silence nudge")
 
     asyncio.create_task(_silence_nudge())
-    asyncio.create_task(_second_nudge())
-
-    async def _graceful_shutdown():
-        await asyncio.sleep(DISCONNECT_GRACE_S)
-        if counters["last_user_ts"] is None and (time.perf_counter() - counters["start_ts"]) > DISCONNECT_GRACE_S:
-            log.info("⏱️ No user activity after grace period")
-
-    asyncio.create_task(_graceful_shutdown())
 
     try:
         await asyncio.sleep(SESSION_LIFETIME_S)
