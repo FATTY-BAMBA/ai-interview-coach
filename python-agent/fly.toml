@@ -2,36 +2,32 @@ app = 'python-agent-snowy-tree-6698'
 primary_region = 'nrt'
 
 [build]
-  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[http_service.concurrency]
+  type = "requests"
+  hard_limit = 25
+  soft_limit = 20
+
+[[http_service.checks]]
+  grace_period = "30s"
+  interval = "15s"
+  method = "GET"
+  timeout = "5s"
+  path = "/health"
+
+[vm]
+  memory = '2gb'
+  cpu_kind = 'shared'
+  cpus = 2
 
 [env]
-  NEXT_PUBLIC_APP_URL = "https://ai-interview-coach-rust.vercel.app"
-  LOG_LEVEL = "INFO"
-  PORT = "8080"
-
-[[services]]
-  internal_port = 8080
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = true
-  min_machines_running = 1
-
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-
-  [[services.http_checks]]
-    interval = "15s"
-    timeout = "10s"
-    grace_period = "5s"
-    method = "GET"
-    path = "/health"
-
-[[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
+  LIVEKIT_URL = "wss://ai-interview-coach-f19dz5as.livekit.cloud"
+  BACKEND_URL = "https://ai-interview-coach-rust.vercel.app"
