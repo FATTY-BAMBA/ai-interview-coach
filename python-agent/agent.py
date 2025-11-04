@@ -55,8 +55,7 @@ SESSION_LIFETIME_S = int(os.getenv("SESSION_LIFETIME_S", "3600"))
 API_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
 API_TOKEN = os.getenv("API_TOKEN")
 
-SILENCE_MAX_WAIT_S = float(os.getenv("SILENCE_MAX_WAIT_S", "8"))
-DISCONNECT_GRACE_S = float(os.getenv("DISCONNECT_GRACE_S", "60"))
+SILENCE_MAX_WAIT_S = float(os.getenv("SILENCE_MAX_WAIT_S", "10"))
 
 # ---------- INTERVIEW TYPE PROMPTS ----------
 PROMPTS = {
@@ -316,13 +315,26 @@ async def entrypoint(ctx: JobContext):
         if hasattr(session, "set_barge_in"):
             session.set_barge_in(True)
 
-    # Subscribe to conversation items (THIS IS THE KEY!)
+    # Track user activity
+    heard_anything = {"flag": False, "time": None}
+    greeting_tasks = []
+
+    # Subscribe to conversation items
     @session.on("conversation_item_added")
     def on_conversation_item(event: ConversationItemAddedEvent):
         """Capture both user and agent messages"""
         try:
-            role = event.item.role  # "user" or "assistant"
+            role = event.item.role
             text = event.item.text_content
+            
+            # Mark that user has responded
+            if role == "user":
+                heard_anything["flag"] = True
+                heard_anything["time"] = time.time()
+                # Cancel any pending greeting tasks
+                for task in greeting_tasks:
+                    if not task.done():
+                        task.cancel()
             
             if text and should_process(text):
                 enqueue_transcript(session_id, role, text)
@@ -344,61 +356,43 @@ async def entrypoint(ctx: JobContext):
 
     log.info(f"🎤 {interview_type.title()} interview session started")
 
-    current_lang = None
-    heard_anything = {"flag": False}
-
-    def _apply_lang(lang: str):
-        nonlocal current_lang
-        if LANG_MODE == "lock_first":
-            current_lang = current_lang or lang
-            lang = current_lang
-        else:
-            current_lang = lang
-
-        desired = tts_zh_tw if lang == "zh-tw" else tts_en
-        with suppress(Exception):
-            if hasattr(session, "set_tts"):
-                session.set_tts(desired)
-
-    # Smart bilingual greeting
-    async def send_initial_greeting():
+    # Sequential greeting - only say what's needed WHEN it's needed
+    async def send_sequential_greeting():
         await asyncio.sleep(2)
         
         greeting_zh = GREETINGS[interview_type]["zh-tw"]
-        greeting_en = GREETINGS[interview_type]["en"]
         
-        # Say Chinese first
-        enqueue_transcript(session_id, "assistant", greeting_zh)
+        # Say Chinese greeting first
         with suppress(Exception):
             if hasattr(session, "say"):
                 await session.say(greeting_zh, allow_interruptions=True)
         log.info(f"🤖 Sent {interview_type} greeting (ZH)")
         
-        # Wait 3 seconds for user response
+        # Wait to see if user responds
         await asyncio.sleep(3)
         
-        # If no response, also say English
+        # Only add English if user hasn't responded yet
         if not heard_anything["flag"]:
-            enqueue_transcript(session_id, "assistant", greeting_en)
+            greeting_en = GREETINGS[interview_type]["en"]
             with suppress(Exception):
                 if hasattr(session, "say"):
                     await session.say(greeting_en, allow_interruptions=True)
-            log.info(f"🤖 Added English greeting")
+            log.info(f"🤖 Added English greeting (no response)")
+            
+            # Wait another 5 seconds for mic permission nudge
+            await asyncio.sleep(5)
+            
+            # Only nudge about mic if STILL no response after 10 total seconds
+            if not heard_anything["flag"]:
+                msg = f"{MIC_TIP_ZH_TW} {MIC_TIP_EN}"
+                with suppress(Exception):
+                    if hasattr(session, "say"):
+                        await session.say(msg, allow_interruptions=True)
+                log.info("🔔 Sent mic permission nudge")
 
     if not LISTEN_FIRST:
-        asyncio.create_task(send_initial_greeting())
-
-    async def _silence_nudge():
-        await asyncio.sleep(SILENCE_MAX_WAIT_S)
-        if not heard_anything["flag"]:
-            msg = f"{MIC_TIP_ZH_TW} {MIC_TIP_EN}"
-            enqueue_transcript(session_id, "assistant", msg)
-            with suppress(Exception):
-                if hasattr(session, "say"):
-                    await session.say(msg)
-            log.info("🔔 Sent silence nudge")
-
-    asyncio.create_task(_silence_nudge())
+        task = asyncio.create_task(send_sequential_greeting())
+        greeting_tasks.append(task)
 
     try:
         await asyncio.sleep(SESSION_LIFETIME_S)

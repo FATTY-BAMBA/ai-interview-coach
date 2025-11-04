@@ -39,3 +39,6 @@ ENV/
 
 # turbopack
 .turbo
+
+# Sentry Config File
+.env.sentry-build-plugin
