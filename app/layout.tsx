@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { PostHogProvider } from "@/providers/posthog-provider";
+import { Providers } from "@/providers/providers";
 import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -33,7 +33,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Suspense fallback={null}>
-          <PostHogProvider>{children}</PostHogProvider>
+          <Providers>{children}</Providers>
         </Suspense>
       </body>
     </html>
