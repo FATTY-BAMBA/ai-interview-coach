@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { LiveKitRoom, RoomAudioRenderer, useRoomContext } from '@livekit/components-react';
 import '@livekit/components-styles';
+import { analytics } from '@/lib/analytics';
 
 const INTERVIEW_TYPE_INFO = {
   behavioral: { name: 'Behavioral Interview', icon: '🗣️', color: 'blue' },
@@ -18,7 +19,7 @@ interface Transcript {
   timestamp: Date;
 }
 
-function InterviewControls({ sessionId, transcripts }: { sessionId: string; transcripts: Transcript[] }) {
+function InterviewControls({ sessionId, interviewType, transcripts, startTime }: { sessionId: string; interviewType: string; transcripts: Transcript[]; startTime: number }) {
   const router = useRouter();
   const room = useRoomContext();
   const [ending, setEnding] = useState(false);
@@ -29,6 +30,7 @@ function InterviewControls({ sessionId, transcripts }: { sessionId: string; tran
     }
 
     setEnding(true);
+    const duration = Math.floor((Date.now() - startTime) / 1000);
 
     try {
       await fetch(`/api/interview/${sessionId}`, {
@@ -36,6 +38,9 @@ function InterviewControls({ sessionId, transcripts }: { sessionId: string; tran
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'completed' }),
       });
+
+      // Track completion
+      analytics.interviewCompleted(sessionId, interviewType, duration);
 
       room?.disconnect();
       router.push(`/evaluation/${sessionId}`);
@@ -45,7 +50,6 @@ function InterviewControls({ sessionId, transcripts }: { sessionId: string; tran
     }
   };
 
-  // Auto-scroll transcript to bottom
   useEffect(() => {
     const container = document.getElementById('transcript-container');
     if (container) {
@@ -55,7 +59,6 @@ function InterviewControls({ sessionId, transcripts }: { sessionId: string; tran
 
   return (
     <div className="space-y-4">
-      {/* Live Transcript Panel */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3">
           <h3 className="text-white font-semibold flex items-center space-x-2">
@@ -98,7 +101,6 @@ function InterviewControls({ sessionId, transcripts }: { sessionId: string; tran
         </div>
       </div>
 
-      {/* End Interview Button */}
       <button
         onClick={endInterview}
         disabled={ending}
@@ -121,13 +123,16 @@ export default function InterviewPage() {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [startTime] = useState(Date.now());
+  
+  const lastCountRef = useRef(0);
+  const noChangeCountRef = useRef(0);
 
   useEffect(() => {
     fetchRoomToken();
   }, [roomName]);
 
   useEffect(() => {
-    // Poll for transcripts from database
     if (!sessionId) return;
 
     const pollTranscripts = async () => {
@@ -136,7 +141,6 @@ export default function InterviewPage() {
         if (response.ok) {
           const data = await response.json();
           if (data.session?.transcripts) {
-            // Sort by timestamp (oldest first)
             const sortedTranscripts = data.session.transcripts
               .map((t: any) => ({
                 speaker: t.speaker,
@@ -146,6 +150,14 @@ export default function InterviewPage() {
               .sort((a: Transcript, b: Transcript) => 
                 a.timestamp.getTime() - b.timestamp.getTime()
               );
+            
+            if (sortedTranscripts.length === lastCountRef.current) {
+              noChangeCountRef.current++;
+            } else {
+              noChangeCountRef.current = 0;
+              lastCountRef.current = sortedTranscripts.length;
+            }
+            
             setTranscripts(sortedTranscripts);
           }
         }
@@ -154,11 +166,29 @@ export default function InterviewPage() {
       }
     };
 
-    // Poll every 2 seconds
-    const interval = setInterval(pollTranscripts, 2000);
-    pollTranscripts(); // Initial fetch
+    pollTranscripts();
+    
+    let currentInterval = 3000;
+    let intervalId: NodeJS.Timeout;
+    
+    const scheduleNext = () => {
+      if (noChangeCountRef.current >= 3) {
+        currentInterval = 10000;
+      } else {
+        currentInterval = 3000;
+      }
+      
+      intervalId = setTimeout(() => {
+        pollTranscripts();
+        scheduleNext();
+      }, currentInterval);
+    };
+    
+    scheduleNext();
 
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalId) clearTimeout(intervalId);
+    };
   }, [sessionId]);
 
   const fetchRoomToken = async () => {
@@ -297,7 +327,7 @@ export default function InterviewPage() {
             </div>
 
             <div className="lg:col-span-1">
-              <InterviewControls sessionId={sessionId} transcripts={transcripts} />
+              <InterviewControls sessionId={sessionId} interviewType={interviewType} transcripts={transcripts} startTime={startTime} />
             </div>
           </div>
           <RoomAudioRenderer />

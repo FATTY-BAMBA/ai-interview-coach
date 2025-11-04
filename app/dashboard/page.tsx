@@ -1,64 +1,60 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { analytics } from '@/lib/analytics';
 
 const INTERVIEW_TYPES = [
   {
     id: 'behavioral',
     name: 'Behavioral Interview',
-    description: 'STAR method questions about your past experiences',
+    description: 'Practice STAR-method answers for behavioral questions',
     icon: '🗣️',
     color: 'from-blue-500 to-blue-600',
-    hoverColor: 'hover:from-blue-600 hover:to-blue-700',
   },
   {
     id: 'technical',
     name: 'Technical Interview',
-    description: 'Coding challenges and algorithm questions',
+    description: 'Code and algorithm questions with real-time feedback',
     icon: '💻',
     color: 'from-green-500 to-green-600',
-    hoverColor: 'hover:from-green-600 hover:to-green-700',
   },
   {
     id: 'system-design',
     name: 'System Design',
-    description: 'Architecture and scalability discussions',
+    description: 'Architecture discussions and scalability questions',
     icon: '🏗️',
     color: 'from-purple-500 to-purple-600',
-    hoverColor: 'hover:from-purple-600 hover:to-purple-700',
   },
   {
     id: 'case-study',
     name: 'Case Study',
-    description: 'Business problems and analytical thinking',
+    description: 'Business analysis and consulting-style interviews',
     icon: '📊',
     color: 'from-orange-500 to-orange-600',
-    hoverColor: 'hover:from-orange-600 hover:to-orange-700',
   },
 ];
 
-export default function Dashboard() {
+export default function DashboardPage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/auth/session')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!data?.user) {
-          router.push('/api/auth/signin');
-        } else {
-          setUser(data.user);
-        }
-        setLoading(false);
-      });
-  }, [router]);
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      analytics.userLoggedIn(session.user.id);
+    }
+  }, [session]);
 
   const startInterview = async (type: string) => {
-    setCreating(true);
+    setCreating(type);
     try {
       const response = await fetch('/api/interview/create', {
         method: 'POST',
@@ -66,44 +62,56 @@ export default function Dashboard() {
         body: JSON.stringify({ interviewType: type }),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        router.push(`/interview/${data.session.roomName}`);
+      if (!response.ok) {
+        throw new Error('Failed to create interview session');
       }
+
+      const data = await response.json();
+      analytics.interviewStarted(data.sessionId, type);
+      router.push(`/interview/${data.roomName}`);
     } catch (error) {
       console.error('Error creating interview:', error);
-      setCreating(false);
+      alert('Failed to start interview. Please try again.');
+      setCreating(null);
     }
   };
 
-  if (loading) {
+  if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
 
+  if (!session) {
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">L</span>
+                <span className="text-white text-xl font-bold">L</span>
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                LyraAI
-              </span>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  LyraAI
+                </h1>
+                <p className="text-sm text-gray-500">Your AI Interview Coach</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-700 font-medium">{user?.name}</span>
+              <span className="text-sm text-gray-600">
+                Welcome, <span className="font-semibold">{session.user?.name || session.user?.email}</span>
+              </span>
               <button
                 onClick={() => router.push('/api/auth/signout')}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
                 Sign Out
               </button>
@@ -114,38 +122,65 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Welcome Section */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Welcome back, {user?.name?.split(' ')[0]}! 👋
-          </h1>
-          <p className="text-xl text-gray-600">
-            Choose an interview type to start practicing
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            Choose Your Interview Type
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Practice with AI-powered interviews. Get real-time feedback and improve your skills.
           </p>
         </div>
 
-        {/* Interview Types Grid */}
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
+        {/* Interview Type Cards */}
+        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {INTERVIEW_TYPES.map((type) => (
-            <button
+            <div
               key={type.id}
-              onClick={() => startInterview(type.id)}
-              disabled={creating}
-              className={`relative group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed text-left`}
+              className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 transform hover:scale-105"
             >
-              <div className="flex items-start space-x-4">
-                <div className="text-5xl">{type.icon}</div>
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{type.name}</h2>
-                  <p className="text-gray-600 mb-4">{type.description}</p>
-                  <div className={`inline-flex items-center space-x-2 bg-gradient-to-r ${type.color} text-white px-6 py-3 rounded-xl font-semibold ${type.hoverColor} transition-all`}>
-                    <span>{creating ? 'Creating...' : 'Start Interview'}</span>
-                    <span>→</span>
+              <div className={`h-2 bg-gradient-to-r ${type.color}`}></div>
+              <div className="p-8">
+                <div className="flex items-start space-x-4">
+                  <div className="text-5xl">{type.icon}</div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      {type.name}
+                    </h3>
+                    <p className="text-gray-600 mb-6">{type.description}</p>
+                    <button
+                      onClick={() => startInterview(type.id)}
+                      disabled={creating !== null}
+                      className={`w-full bg-gradient-to-r ${type.color} text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transform hover:scale-105 active:scale-95`}
+                    >
+                      {creating === type.id ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Starting...
+                        </span>
+                      ) : (
+                        'Start Interview'
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
-            </button>
+            </div>
           ))}
+        </div>
+
+        {/* Past Interviews Section (Coming Soon) */}
+        <div className="mt-16 text-center">
+          <div className="inline-block bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 border border-indigo-100">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              📊 Interview History Coming Soon
+            </h3>
+            <p className="text-gray-600">
+              Track your progress, review past interviews, and see your improvement over time.
+            </p>
+          </div>
         </div>
       </main>
     </div>
