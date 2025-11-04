@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/db';
-import { interviewSessions, transcripts } from '@/db/schema';
+import { db } from '@/lib/db';
+import { interviewSessions, transcripts } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
