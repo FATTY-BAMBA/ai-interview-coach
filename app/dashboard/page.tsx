@@ -98,8 +98,13 @@ export default function DashboardPage() {
       }
 
       const data = await response.json();
-      analytics.interviewStarted(data.sessionId, type);
-      router.push(`/interview/${data.roomName}`);
+      
+      // Fix: Use data.session.id and data.session.roomName
+      const sessionId = data.session.id;
+      const roomName = data.session.roomName;
+      
+      analytics.interviewStarted(sessionId, type);
+      router.push(`/interview/${roomName}`);
     } catch (error) {
       console.error('Error creating interview:', error);
       alert('Failed to start interview. Please try again.');
@@ -141,17 +146,17 @@ export default function DashboardPage() {
     const styles = {
       completed: 'bg-green-100 text-green-800',
       in_progress: 'bg-yellow-100 text-yellow-800',
-      pending: 'bg-gray-100 text-gray-800',
+      scheduled: 'bg-gray-100 text-gray-800',
     };
     
     const labels = {
       completed: 'Completed',
       in_progress: 'In Progress',
-      pending: 'Pending',
+      scheduled: 'Scheduled',
     };
 
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${styles[status as keyof typeof styles] || styles.pending}`}>
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${styles[status as keyof typeof styles] || styles.scheduled}`}>
         {labels[status as keyof typeof labels] || status}
       </span>
     );

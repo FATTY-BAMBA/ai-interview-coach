@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { interviewSessions, transcripts } from '@/lib/db/schema';
+import { interviewSessions, conversationTurns, users } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
@@ -13,6 +13,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Get user ID from email
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, session.user.email),
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
       );
     }
 
@@ -27,7 +39,7 @@ export async function GET(request: NextRequest) {
         roomName: interviewSessions.roomName,
       })
       .from(interviewSessions)
-      .where(eq(interviewSessions.userEmail, session.user.email))
+      .where(eq(interviewSessions.userId, user.id))
       .orderBy(desc(interviewSessions.createdAt))
       .limit(50);
 
@@ -36,8 +48,8 @@ export async function GET(request: NextRequest) {
       sessions.map(async (s) => {
         const transcriptCount = await db
           .select()
-          .from(transcripts)
-          .where(eq(transcripts.sessionId, s.id));
+          .from(conversationTurns)
+          .where(eq(conversationTurns.sessionId, s.id));
         
         return {
           ...s,
