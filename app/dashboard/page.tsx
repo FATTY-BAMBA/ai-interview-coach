@@ -36,10 +36,26 @@ const INTERVIEW_TYPES = [
   },
 ];
 
+const getInterviewTypeInfo = (type: string) => {
+  return INTERVIEW_TYPES.find(t => t.id === type) || INTERVIEW_TYPES[0];
+};
+
+interface InterviewSession {
+  id: string;
+  interviewType: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  roomName: string;
+  transcripts?: any[];
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [creating, setCreating] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -50,8 +66,23 @@ export default function DashboardPage() {
   useEffect(() => {
     if (session?.user?.id) {
       analytics.userLoggedIn(session.user.id);
+      fetchSessions();
     }
   }, [session]);
+
+  const fetchSessions = async () => {
+    try {
+      const response = await fetch('/api/interview/sessions');
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(data.sessions || []);
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
 
   const startInterview = async (type: string) => {
     setCreating(type);
@@ -74,6 +105,56 @@ export default function DashboardPage() {
       alert('Failed to start interview. Please try again.');
       setCreating(null);
     }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const getDuration = (createdAt: string, updatedAt: string) => {
+    const start = new Date(createdAt);
+    const end = new Date(updatedAt);
+    const diffMs = end.getTime() - start.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return '< 1 min';
+    if (diffMins < 60) return `${diffMins} min`;
+    
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    return `${hours}h ${mins}m`;
+  };
+
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      completed: 'bg-green-100 text-green-800',
+      in_progress: 'bg-yellow-100 text-yellow-800',
+      pending: 'bg-gray-100 text-gray-800',
+    };
+    
+    const labels = {
+      completed: 'Completed',
+      in_progress: 'In Progress',
+      pending: 'Pending',
+    };
+
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${styles[status as keyof typeof styles] || styles.pending}`}>
+        {labels[status as keyof typeof labels] || status}
+      </span>
+    );
   };
 
   if (status === 'loading') {
@@ -122,65 +203,135 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Choose Your Interview Type
-          </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Practice with AI-powered interviews. Get real-time feedback and improve your skills.
-          </p>
-        </div>
-
-        {/* Interview Type Cards */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-          {INTERVIEW_TYPES.map((type) => (
-            <div
-              key={type.id}
-              className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 transform hover:scale-105"
-            >
-              <div className={`h-2 bg-gradient-to-r ${type.color}`}></div>
-              <div className="p-8">
-                <div className="flex items-start space-x-4">
-                  <div className="text-5xl">{type.icon}</div>
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                      {type.name}
-                    </h3>
-                    <p className="text-gray-600 mb-6">{type.description}</p>
-                    <button
-                      onClick={() => startInterview(type.id)}
-                      disabled={creating !== null}
-                      className={`w-full bg-gradient-to-r ${type.color} text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transform hover:scale-105 active:scale-95`}
-                    >
-                      {creating === type.id ? (
-                        <span className="flex items-center justify-center">
-                          <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Starting...
-                        </span>
-                      ) : (
-                        'Start Interview'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Past Interviews Section (Coming Soon) */}
-        <div className="mt-16 text-center">
-          <div className="inline-block bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 border border-indigo-100">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              📊 Interview History Coming Soon
-            </h3>
+        {/* Start New Interview Section */}
+        <div className="mb-12">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              Start a New Interview
+            </h2>
             <p className="text-gray-600">
-              Track your progress, review past interviews, and see your improvement over time.
+              Choose an interview type to begin practicing
             </p>
           </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {INTERVIEW_TYPES.map((type) => (
+              <button
+                key={type.id}
+                onClick={() => startInterview(type.id)}
+                disabled={creating !== null}
+                className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 text-left border border-gray-100 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="text-4xl mb-3">{type.icon}</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">
+                  {type.name}
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">{type.description}</p>
+                <div className={`w-full bg-gradient-to-r ${type.color} text-white px-4 py-2 rounded-lg text-center text-sm font-semibold`}>
+                  {creating === type.id ? 'Starting...' : 'Start'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Interview History Section */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-900">Interview History</h2>
+            <p className="text-sm text-gray-600 mt-1">Review your past practice sessions</p>
+          </div>
+
+          {loadingSessions ? (
+            <div className="p-12 text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+              <p className="text-gray-600 mt-4">Loading your interviews...</p>
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="text-6xl mb-4">📝</div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No interviews yet</h3>
+              <p className="text-gray-600">Start your first practice interview above to begin!</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Duration
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sessions.map((session) => {
+                    const typeInfo = getInterviewTypeInfo(session.interviewType);
+                    return (
+                      <tr 
+                        key={session.id}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/evaluation/${session.id}`)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-3">
+                            <span className="text-2xl">{typeInfo.icon}</span>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {typeInfo.name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {session.transcripts?.length || 0} messages
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{formatDate(session.createdAt)}</div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(session.createdAt).toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {getDuration(session.createdAt, session.updatedAt)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(session.status)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/evaluation/${session.id}`);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900 font-medium"
+                          >
+                            View Details →
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
     </div>
