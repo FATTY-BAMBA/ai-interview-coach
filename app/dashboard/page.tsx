@@ -48,6 +48,7 @@ interface InterviewSession {
   updatedAt: string;
   roomName: string;
   transcripts?: any[];
+  evaluationReports?: any[];
 }
 
 export default function DashboardPage() {
@@ -99,7 +100,6 @@ export default function DashboardPage() {
 
       const data = await response.json();
       
-      // Fix: Use data.session.id and data.session.roomName
       const sessionId = data.session.id;
       const roomName = data.session.roomName;
       
@@ -244,7 +244,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-2xl font-bold text-gray-900">Interview History</h2>
-            <p className="text-sm text-gray-600 mt-1">Review your past practice sessions</p>
+            <p className="text-sm text-gray-600 mt-1">Review your past practice sessions and evaluations</p>
           </div>
 
           {loadingSessions ? (
@@ -281,13 +281,15 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {sessions.map((session) => {
-                    const typeInfo = getInterviewTypeInfo(session.interviewType);
+                  {sessions.map((sessionItem) => {
+                    const typeInfo = getInterviewTypeInfo(sessionItem.interviewType);
+                    const hasEvaluation = sessionItem.evaluationReports && sessionItem.evaluationReports.length > 0;
+                    
                     return (
                       <tr 
-                        key={session.id}
+                        key={sessionItem.id}
                         className="hover:bg-gray-50 transition-colors cursor-pointer"
-                        onClick={() => router.push(`/evaluation/${session.id}`)}
+                        onClick={() => router.push(`/evaluation/${sessionItem.id}`)}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-3">
@@ -297,15 +299,15 @@ export default function DashboardPage() {
                                 {typeInfo.name}
                               </div>
                               <div className="text-xs text-gray-500">
-                                {session.transcripts?.length || 0} messages
+                                {sessionItem.transcripts?.length || 0} messages
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{formatDate(session.createdAt)}</div>
+                          <div className="text-sm text-gray-900">{formatDate(sessionItem.createdAt)}</div>
                           <div className="text-xs text-gray-500">
-                            {new Date(session.createdAt).toLocaleTimeString('en-US', { 
+                            {new Date(sessionItem.createdAt).toLocaleTimeString('en-US', { 
                               hour: '2-digit', 
                               minute: '2-digit' 
                             })}
@@ -313,21 +315,28 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {getDuration(session.createdAt, session.updatedAt)}
+                            {getDuration(sessionItem.createdAt, sessionItem.updatedAt)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(session.status)}
+                          <div className="flex items-center space-x-2">
+                            {getStatusBadge(sessionItem.status)}
+                            {hasEvaluation && (
+                              <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-semibold">
+                                ✓ Evaluated
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/evaluation/${session.id}`);
+                              router.push(`/evaluation/${sessionItem.id}`);
                             }}
                             className="text-indigo-600 hover:text-indigo-900 font-medium"
                           >
-                            View Details →
+                            {hasEvaluation ? 'View Evaluation →' : 'View Details →'}
                           </button>
                         </td>
                       </tr>

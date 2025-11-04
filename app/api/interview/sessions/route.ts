@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { interviewSessions, conversationTurns, users } from '@/lib/db/schema';
+import { interviewSessions, conversationTurns, evaluationReports, users } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user ID from email
     const user = await db.query.users.findFirst({
       where: eq(users.email, session.user.email),
     });
@@ -28,37 +27,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all sessions for the user
-    const sessions = await db
-      .select({
-        id: interviewSessions.id,
-        interviewType: interviewSessions.interviewType,
-        status: interviewSessions.status,
-        createdAt: interviewSessions.createdAt,
-        updatedAt: interviewSessions.updatedAt,
-        roomName: interviewSessions.roomName,
-      })
-      .from(interviewSessions)
-      .where(eq(interviewSessions.userId, user.id))
-      .orderBy(desc(interviewSessions.createdAt))
-      .limit(50);
+    const sessions = await db.query.interviewSessions.findMany({
+      where: eq(interviewSessions.userId, user.id),
+      orderBy: [desc(interviewSessions.createdAt)],
+      limit: 50,
+      with: {
+        conversationTurns: true,
+        evaluationReports: true,
+      },
+    });
 
-    // Get transcript count for each session
-    const sessionsWithCounts = await Promise.all(
-      sessions.map(async (s) => {
-        const transcriptCount = await db
-          .select()
-          .from(conversationTurns)
-          .where(eq(conversationTurns.sessionId, s.id));
-        
-        return {
-          ...s,
-          transcripts: transcriptCount,
-        };
-      })
-    );
+    // Format for response
+    const formattedSessions = sessions.map(s => ({
+      id: s.id,
+      interviewType: s.interviewType,
+      status: s.status,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
+      roomName: s.roomName,
+      transcripts: s.conversationTurns,
+      evaluationReports: s.evaluationReports,
+    }));
 
-    return NextResponse.json({ sessions: sessionsWithCounts });
+    return NextResponse.json({ sessions: formattedSessions });
   } catch (error) {
     console.error('Error fetching sessions:', error);
     return NextResponse.json(
