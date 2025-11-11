@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { analytics } from '@/lib/analytics';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const INTERVIEW_TYPES = [
   {
@@ -64,14 +64,40 @@ interface DashboardStats {
   totalHours: number;
 }
 
+interface SkillTrends {
+  trends: Array<{
+    interview: string;
+    date: string;
+    clarity: number;
+    structure: number;
+    confidence: number;
+    overall: number;
+  }>;
+  averages: {
+    clarity: number | null;
+    structure: number | null;
+    confidence: number | null;
+    overall: number | null;
+  };
+  improvement: {
+    clarity: number;
+    structure: number;
+    confidence: number;
+    overall: number;
+  };
+  totalEvaluations: number;
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [creating, setCreating] = useState<string | null>(null);
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [skillTrends, setSkillTrends] = useState<SkillTrends | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingTrends, setLoadingTrends] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -84,6 +110,7 @@ export default function DashboardPage() {
       analytics.userLoggedIn(session.user.id);
       fetchSessions();
       fetchStats();
+      fetchSkillTrends();
     }
   }, [session]);
 
@@ -112,6 +139,20 @@ export default function DashboardPage() {
       console.error('Error fetching stats:', error);
     } finally {
       setLoadingStats(false);
+    }
+  };
+
+  const fetchSkillTrends = async () => {
+    try {
+      const response = await fetch('/api/dashboard/skill-trends');
+      if (response.ok) {
+        const data = await response.json();
+        setSkillTrends(data);
+      }
+    } catch (error) {
+      console.error('Error fetching skill trends:', error);
+    } finally {
+      setLoadingTrends(false);
     }
   };
 
@@ -190,6 +231,15 @@ export default function DashboardPage() {
         {labels[status as keyof typeof labels] || status}
       </span>
     );
+  };
+
+  const getImprovementBadge = (value: number) => {
+    if (value > 0) {
+      return <span className="text-green-600 font-semibold">+{value} ↗️</span>;
+    } else if (value < 0) {
+      return <span className="text-red-600 font-semibold">{value} ↘️</span>;
+    }
+    return <span className="text-gray-600 font-semibold">—</span>;
   };
 
   if (status === 'loading') {
@@ -359,7 +409,137 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 3. Weekly Activity Chart */}
+        {/* 3. Skill Improvement Trends - NEW! */}
+        {!loadingTrends && skillTrends && skillTrends.trends.length > 0 && (
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Skill Improvement Trends</h2>
+                <p className="text-sm text-gray-600 mt-1">Track your progress across key interview skills</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-600">Evaluations</div>
+                <div className="text-lg font-bold text-indigo-600">{skillTrends.totalEvaluations}</div>
+              </div>
+            </div>
+
+            {/* Skill Average Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+                <div className="text-sm font-medium text-blue-900 mb-1">Clarity</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold text-blue-900">
+                    {skillTrends.averages.clarity || 'N/A'}
+                  </div>
+                  <div className="text-sm">
+                    {getImprovementBadge(skillTrends.improvement.clarity)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
+                <div className="text-sm font-medium text-purple-900 mb-1">Structure</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold text-purple-900">
+                    {skillTrends.averages.structure || 'N/A'}
+                  </div>
+                  <div className="text-sm">
+                    {getImprovementBadge(skillTrends.improvement.structure)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-orange-50 rounded-xl p-4 border-2 border-orange-200">
+                <div className="text-sm font-medium text-orange-900 mb-1">Confidence</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold text-orange-900">
+                    {skillTrends.averages.confidence || 'N/A'}
+                  </div>
+                  <div className="text-sm">
+                    {getImprovementBadge(skillTrends.improvement.confidence)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200">
+                <div className="text-sm font-medium text-green-900 mb-1">Overall</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold text-green-900">
+                    {skillTrends.averages.overall || 'N/A'}
+                  </div>
+                  <div className="text-sm">
+                    {getImprovementBadge(skillTrends.improvement.overall)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Line Chart */}
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <ResponsiveContainer width="100%" height={400}>
+                <LineChart data={skillTrends.trends}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="interview" 
+                    stroke="#6b7280"
+                    style={{ fontSize: '12px' }}
+                  />
+                  <YAxis 
+                    stroke="#6b7280"
+                    style={{ fontSize: '12px' }}
+                    domain={[0, 100]}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '12px',
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="line"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="clarity" 
+                    stroke="#3b82f6" 
+                    strokeWidth={3}
+                    name="Clarity"
+                    dot={{ fill: '#3b82f6', r: 4 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="structure" 
+                    stroke="#a855f7" 
+                    strokeWidth={3}
+                    name="Structure"
+                    dot={{ fill: '#a855f7', r: 4 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="confidence" 
+                    stroke="#f97316" 
+                    strokeWidth={3}
+                    name="Confidence"
+                    dot={{ fill: '#f97316', r: 4 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="overall" 
+                    stroke="#22c55e" 
+                    strokeWidth={3}
+                    name="Overall"
+                    dot={{ fill: '#22c55e', r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* 4. Weekly Activity Chart */}
         {!loadingStats && stats && stats.weeklyActivity.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-12">
             <div className="flex items-center justify-between mb-6">
@@ -408,7 +588,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 4. Interview History Section */}
+        {/* 5. Interview History Section */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-2xl font-bold text-gray-900">Interview History</h2>
