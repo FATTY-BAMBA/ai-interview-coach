@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { analytics } from '@/lib/analytics';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const INTERVIEW_TYPES = [
   {
@@ -51,12 +52,26 @@ interface InterviewSession {
   evaluationReports?: any[];
 }
 
+interface DashboardStats {
+  totalInterviews: number;
+  avgDuration: number;
+  mostPracticedType: string;
+  overallScore: number | null;
+  weeklyActivity: Array<{ date: string; interviews: number; dayName: string }>;
+  bestDay: string;
+  currentStreak: number;
+  interviewsThisWeek: number;
+  totalHours: number;
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [creating, setCreating] = useState<string | null>(null);
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -68,6 +83,7 @@ export default function DashboardPage() {
     if (session?.user?.id) {
       analytics.userLoggedIn(session.user.id);
       fetchSessions();
+      fetchStats();
     }
   }, [session]);
 
@@ -82,6 +98,20 @@ export default function DashboardPage() {
       console.error('Error fetching sessions:', error);
     } finally {
       setLoadingSessions(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/dashboard/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    } finally {
+      setLoadingStats(false);
     }
   };
 
@@ -174,6 +204,8 @@ export default function DashboardPage() {
     return null;
   }
 
+  const mostPracticedTypeInfo = stats ? getInterviewTypeInfo(stats.mostPracticedType) : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
@@ -208,6 +240,142 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Progress Metrics Cards */}
+        {!loadingStats && stats && (
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Progress</h2>
+            
+            {/* Top Row - Main Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              {/* Total Interviews */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-600 text-sm font-medium">Total Interviews</span>
+                  <span className="text-3xl">🎯</span>
+                </div>
+                <div className="text-3xl font-bold text-gray-900">{stats.totalInterviews}</div>
+                <p className="text-xs text-gray-500 mt-1">All-time practice sessions</p>
+              </div>
+
+              {/* Average Duration */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-600 text-sm font-medium">Avg Duration</span>
+                  <span className="text-3xl">⏱️</span>
+                </div>
+                <div className="text-3xl font-bold text-gray-900">{stats.avgDuration} min</div>
+                <p className="text-xs text-gray-500 mt-1">Average interview length</p>
+              </div>
+
+              {/* Most Practiced Type */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-600 text-sm font-medium">Most Practiced</span>
+                  <span className="text-3xl">{mostPracticedTypeInfo?.icon}</span>
+                </div>
+                <div className="text-lg font-bold text-gray-900">{mostPracticedTypeInfo?.name}</div>
+                <p className="text-xs text-gray-500 mt-1">Your focus area</p>
+              </div>
+
+              {/* Overall Score */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-600 text-sm font-medium">Overall Score</span>
+                  <span className="text-3xl">📊</span>
+                </div>
+                <div className="text-3xl font-bold text-gray-900">
+                  {stats.overallScore !== null ? stats.overallScore : 'N/A'}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.overallScore !== null ? 'Average performance' : 'Complete an interview'}
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom Row - Weekly Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* This Week */}
+              <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl shadow-md p-6 border-2 border-indigo-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-indigo-900 text-sm font-semibold">This Week</span>
+                  <span className="text-3xl">📅</span>
+                </div>
+                <div className="text-3xl font-bold text-indigo-900">{stats.interviewsThisWeek}</div>
+                <p className="text-xs text-indigo-700 mt-1">Interviews completed</p>
+              </div>
+
+              {/* Current Streak */}
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl shadow-md p-6 border-2 border-orange-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-orange-900 text-sm font-semibold">Current Streak</span>
+                  <span className="text-3xl">🔥</span>
+                </div>
+                <div className="text-3xl font-bold text-orange-900">{stats.currentStreak} days</div>
+                <p className="text-xs text-orange-700 mt-1">Keep it going!</p>
+              </div>
+
+              {/* Total Practice Time */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-md p-6 border-2 border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-green-900 text-sm font-semibold">Practice Time</span>
+                  <span className="text-3xl">⏰</span>
+                </div>
+                <div className="text-3xl font-bold text-green-900">{stats.totalHours}h</div>
+                <p className="text-xs text-green-700 mt-1">Total time invested</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Weekly Activity Chart */}
+        {!loadingStats && stats && stats.weeklyActivity.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Weekly Activity</h2>
+                <p className="text-sm text-gray-600 mt-1">Your practice consistency over the last 7 days</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-600">Best Day</div>
+                <div className="text-lg font-bold text-indigo-600">{stats.bestDay}</div>
+              </div>
+            </div>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={stats.weeklyActivity}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="dayName" 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                />
+                <YAxis 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  allowDecimals={false}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                  }}
+                  labelStyle={{ color: '#374151', fontWeight: 'bold' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="interviews" 
+                  stroke="#6366f1" 
+                  strokeWidth={3}
+                  dot={{ fill: '#6366f1', r: 5 }}
+                  activeDot={{ r: 7 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
         {/* Start New Interview Section */}
         <div className="mb-12">
           <div className="text-center mb-8">
