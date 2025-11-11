@@ -240,7 +240,39 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Progress Metrics Cards */}
+        {/* 1. Start New Interview Section - NOW FIRST! */}
+        <div className="mb-12">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              Start a New Interview
+            </h2>
+            <p className="text-gray-600">
+              Choose an interview type to begin practicing
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {INTERVIEW_TYPES.map((type) => (
+              <button
+                key={type.id}
+                onClick={() => startInterview(type.id)}
+                disabled={creating !== null}
+                className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 text-left border border-gray-100 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="text-4xl mb-3">{type.icon}</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">
+                  {type.name}
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">{type.description}</p>
+                <div className={`w-full bg-gradient-to-r ${type.color} text-white px-4 py-2 rounded-lg text-center text-sm font-semibold`}>
+                  {creating === type.id ? 'Starting...' : 'Start'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 2. Progress Metrics Cards - NOW SECOND! */}
         {!loadingStats && stats && (
           <div className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Progress</h2>
@@ -327,7 +359,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Weekly Activity Chart */}
+        {/* 3. Weekly Activity Chart - NOW THIRD! */}
         {!loadingStats && stats && stats.weeklyActivity.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-12">
             <div className="flex items-center justify-between mb-6">
@@ -376,39 +408,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Start New Interview Section */}
-        <div className="mb-12">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Start a New Interview
-            </h2>
-            <p className="text-gray-600">
-              Choose an interview type to begin practicing
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {INTERVIEW_TYPES.map((type) => (
-              <button
-                key={type.id}
-                onClick={() => startInterview(type.id)}
-                disabled={creating !== null}
-                className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 text-left border border-gray-100 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="text-4xl mb-3">{type.icon}</div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">
-                  {type.name}
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">{type.description}</p>
-                <div className={`w-full bg-gradient-to-r ${type.color} text-white px-4 py-2 rounded-lg text-center text-sm font-semibold`}>
-                  {creating === type.id ? 'Starting...' : 'Start'}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Interview History Section */}
+        {/* 4. Interview History Section - STAYS AT BOTTOM */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-2xl font-bold text-gray-900">Interview History</h2>
@@ -451,7 +451,7 @@ export default function DashboardPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {sessions.map((sessionItem) => {
                     const typeInfo = getInterviewTypeInfo(sessionItem.interviewType);
-                    const hasEvaluation = sessionItem.evaluationReports && sessionItem.evaluationReports.length > 0;
+                    hasEvaluation = sessionItem.evaluationReports && sessionItem.evaluationReports.length > 0;
                     
                     return (
                       <tr 
