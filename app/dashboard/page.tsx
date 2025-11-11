@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { analytics } from '@/lib/analytics';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const INTERVIEW_TYPES = [
   {
@@ -409,132 +409,85 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 3. Skill Improvement Trends - NEW! */}
+        {/* 3. Skill Improvement Trends - CARDS ONLY, NO CHART */}
         {!loadingTrends && skillTrends && skillTrends.trends.length > 0 && (
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Skill Improvement Trends</h2>
-                <p className="text-sm text-gray-600 mt-1">Track your progress across key interview skills</p>
+                <p className="text-sm text-gray-600 mt-1">Your average performance across key interview skills</p>
               </div>
               <div className="text-right">
-                <div className="text-sm font-medium text-gray-600">Evaluations</div>
+                <div className="text-sm font-medium text-gray-600">Evaluated Interviews</div>
                 <div className="text-lg font-bold text-indigo-600">{skillTrends.totalEvaluations}</div>
               </div>
             </div>
 
-            {/* Skill Average Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
-                <div className="text-sm font-medium text-blue-900 mb-1">Clarity</div>
+            {/* Skill Average Cards - ONLY THIS PART */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-md p-6 border-2 border-blue-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-lg font-semibold text-blue-900">Clarity</div>
+                  <span className="text-3xl">💬</span>
+                </div>
+                <div className="text-4xl font-bold text-blue-900 mb-2">
+                  {skillTrends.averages.clarity || 'N/A'}
+                </div>
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold text-blue-900">
-                    {skillTrends.averages.clarity || 'N/A'}
-                  </div>
+                  <span className="text-xs text-blue-700">Since first interview</span>
                   <div className="text-sm">
                     {getImprovementBadge(skillTrends.improvement.clarity)}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
-                <div className="text-sm font-medium text-purple-900 mb-1">Structure</div>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-md p-6 border-2 border-purple-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-lg font-semibold text-purple-900">Structure</div>
+                  <span className="text-3xl">🏗️</span>
+                </div>
+                <div className="text-4xl font-bold text-purple-900 mb-2">
+                  {skillTrends.averages.structure || 'N/A'}
+                </div>
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold text-purple-900">
-                    {skillTrends.averages.structure || 'N/A'}
-                  </div>
+                  <span className="text-xs text-purple-700">Since first interview</span>
                   <div className="text-sm">
                     {getImprovementBadge(skillTrends.improvement.structure)}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-orange-50 rounded-xl p-4 border-2 border-orange-200">
-                <div className="text-sm font-medium text-orange-900 mb-1">Confidence</div>
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl shadow-md p-6 border-2 border-orange-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-lg font-semibold text-orange-900">Confidence</div>
+                  <span className="text-3xl">💪</span>
+                </div>
+                <div className="text-4xl font-bold text-orange-900 mb-2">
+                  {skillTrends.averages.confidence || 'N/A'}
+                </div>
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold text-orange-900">
-                    {skillTrends.averages.confidence || 'N/A'}
-                  </div>
+                  <span className="text-xs text-orange-700">Since first interview</span>
                   <div className="text-sm">
                     {getImprovementBadge(skillTrends.improvement.confidence)}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200">
-                <div className="text-sm font-medium text-green-900 mb-1">Overall</div>
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-md p-6 border-2 border-green-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-lg font-semibold text-green-900">Overall</div>
+                  <span className="text-3xl">⭐</span>
+                </div>
+                <div className="text-4xl font-bold text-green-900 mb-2">
+                  {skillTrends.averages.overall || 'N/A'}
+                </div>
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold text-green-900">
-                    {skillTrends.averages.overall || 'N/A'}
-                  </div>
+                  <span className="text-xs text-green-700">Since first interview</span>
                   <div className="text-sm">
                     {getImprovementBadge(skillTrends.improvement.overall)}
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Line Chart */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={skillTrends.trends}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="interview" 
-                    stroke="#6b7280"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <YAxis 
-                    stroke="#6b7280"
-                    style={{ fontSize: '12px' }}
-                    domain={[0, 100]}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      padding: '12px',
-                    }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: '20px' }}
-                    iconType="line"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="clarity" 
-                    stroke="#3b82f6" 
-                    strokeWidth={3}
-                    name="Clarity"
-                    dot={{ fill: '#3b82f6', r: 4 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="structure" 
-                    stroke="#a855f7" 
-                    strokeWidth={3}
-                    name="Structure"
-                    dot={{ fill: '#a855f7', r: 4 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="confidence" 
-                    stroke="#f97316" 
-                    strokeWidth={3}
-                    name="Confidence"
-                    dot={{ fill: '#f97316', r: 4 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="overall" 
-                    stroke="#22c55e" 
-                    strokeWidth={3}
-                    name="Overall"
-                    dot={{ fill: '#22c55e', r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
             </div>
           </div>
         )}
