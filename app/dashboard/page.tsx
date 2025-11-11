@@ -240,7 +240,7 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* 1. Start New Interview Section - NOW FIRST! */}
+        {/* 1. Start New Interview Section */}
         <div className="mb-12">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
@@ -272,7 +272,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 2. Progress Metrics Cards - NOW SECOND! */}
+        {/* 2. Progress Metrics Cards */}
         {!loadingStats && stats && (
           <div className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Progress</h2>
@@ -359,7 +359,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 3. Weekly Activity Chart - NOW THIRD! */}
+        {/* 3. Weekly Activity Chart */}
         {!loadingStats && stats && stats.weeklyActivity.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-12">
             <div className="flex items-center justify-between mb-6">
@@ -408,7 +408,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 4. Interview History Section - STAYS AT BOTTOM */}
+        {/* 4. Interview History Section */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-2xl font-bold text-gray-900">Interview History</h2>
@@ -451,7 +451,7 @@ export default function DashboardPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {sessions.map((sessionItem) => {
                     const typeInfo = getInterviewTypeInfo(sessionItem.interviewType);
-                    hasEvaluation = sessionItem.evaluationReports && sessionItem.evaluationReports.length > 0;
+                    const hasEvaluation = sessionItem.evaluationReports && sessionItem.evaluationReports.length > 0;
                     
                     return (
                       <tr 
