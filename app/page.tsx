@@ -26,6 +26,15 @@ export default function Home() {
     router.push('/dashboard');
   };
 
+  // NEW: Route to /start page for practicing
+  const handleStartPracticing = () => {
+    if (session?.user) {
+      router.push('/start');  // ← CHANGED: go to /start instead of /dashboard
+    } else {
+      router.push('/api/auth/signin');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
@@ -92,10 +101,10 @@ export default function Home() {
               Practice behavioral, technical, system design, and case study interviews with our AI coach. Get real-time feedback and improve your skills.
             </p>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons - UPDATED ROUTING */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
               <button
-                onClick={session?.user ? handleGetStarted : handleSignIn}
+                onClick={handleStartPracticing}  {/* ← CHANGED: use new handler */}
                 className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:shadow-2xl transition-all duration-200 transform hover:scale-105"
               >
                 {session?.user ? 'Start Practicing' : 'Get Started Free'}
@@ -147,7 +156,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Why Choose LyraAI - Matching the design from screenshot */}
+      {/* Why Choose LyraAI */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
