@@ -258,11 +258,13 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+            >
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
                 <span className="text-white text-xl font-bold">L</span>
               </div>
@@ -272,7 +274,7 @@ export default function DashboardPage() {
                 </h1>
                 <p className="text-sm text-gray-500">Your AI Interview Coach</p>
               </div>
-            </div>
+            </button>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
                 Welcome, <span className="font-semibold">{session.user?.name || session.user?.email}</span>
@@ -288,9 +290,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* 1. Start New Interview Section */}
         <div className="mb-12">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
@@ -322,14 +322,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 2. Progress Metrics Cards */}
         {!loadingStats && stats && (
           <div className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Progress</h2>
             
-            {/* Top Row - Main Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-              {/* Total Interviews */}
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-600 text-sm font-medium">Total Interviews</span>
@@ -339,7 +336,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-500 mt-1">All-time practice sessions</p>
               </div>
 
-              {/* Average Duration */}
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-600 text-sm font-medium">Avg Duration</span>
@@ -349,7 +345,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-500 mt-1">Average interview length</p>
               </div>
 
-              {/* Most Practiced Type */}
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-600 text-sm font-medium">Most Practiced</span>
@@ -359,7 +354,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-500 mt-1">Your focus area</p>
               </div>
 
-              {/* Overall Score */}
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-600 text-sm font-medium">Overall Score</span>
@@ -374,9 +368,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Bottom Row - Weekly Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* This Week */}
               <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl shadow-md p-6 border-2 border-indigo-200">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-indigo-900 text-sm font-semibold">This Week</span>
@@ -386,7 +378,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-indigo-700 mt-1">Interviews completed</p>
               </div>
 
-              {/* Current Streak */}
               <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl shadow-md p-6 border-2 border-orange-200">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-orange-900 text-sm font-semibold">Current Streak</span>
@@ -396,7 +387,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-orange-700 mt-1">Keep it going!</p>
               </div>
 
-              {/* Total Practice Time */}
               <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-md p-6 border-2 border-green-200">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-green-900 text-sm font-semibold">Practice Time</span>
@@ -409,7 +399,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 3. Skill Improvement Trends - CARDS ONLY, NO CHART */}
         {!loadingTrends && skillTrends && skillTrends.trends.length > 0 && (
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">
@@ -423,7 +412,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Skill Average Cards - ONLY THIS PART */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-md p-6 border-2 border-blue-200">
                 <div className="flex items-center justify-between mb-3">
@@ -492,7 +480,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 4. Weekly Activity Chart */}
         {!loadingStats && stats && stats.weeklyActivity.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-12">
             <div className="flex items-center justify-between mb-6">
@@ -541,7 +528,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 5. Interview History Section */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-2xl font-bold text-gray-900">Interview History</h2>
