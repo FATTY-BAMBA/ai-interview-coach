@@ -44,7 +44,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center">
@@ -77,17 +76,14 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero Section */}
       <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-8">
-            {/* Badge */}
             <div className="inline-flex items-center space-x-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium">
               <span className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse"></span>
               <span>AI-Powered Interview Coaching</span>
             </div>
 
-            {/* Main Heading */}
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
               <span className="block text-gray-900">Master Your Next</span>
               <span className="block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
@@ -95,12 +91,10 @@ export default function Home() {
               </span>
             </h1>
 
-            {/* Subheading */}
             <p className="max-w-2xl mx-auto text-xl text-gray-600">
               Practice behavioral, technical, system design, and case study interviews with our AI coach. Get real-time feedback and improve your skills.
             </p>
 
-            {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
               <button
                 onClick={handleStartPracticing}
@@ -116,7 +110,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Interview Types */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -155,7 +148,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Why Choose LyraAI */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -164,7 +156,6 @@ export default function Home() {
           </div>
           
           <div className="grid md:grid-cols-3 gap-12 max-w-6xl mx-auto">
-            {/* Voice-Based */}
             <div className="text-center">
               <div className="flex justify-center mb-6">
                 <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center">
@@ -177,7 +168,6 @@ export default function Home() {
               <p className="text-gray-600 text-lg leading-relaxed">Practice with real voice conversations, just like a real interview</p>
             </div>
 
-            {/* AI Feedback */}
             <div className="text-center">
               <div className="flex justify-center mb-6">
                 <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center">
@@ -190,7 +180,6 @@ export default function Home() {
               <p className="text-gray-600 text-lg leading-relaxed">Get detailed evaluation reports with scores and improvements</p>
             </div>
 
-            {/* Bilingual Support */}
             <div className="text-center">
               <div className="flex justify-center mb-6">
                 <div className="w-32 h-32 bg-purple-100 rounded-full flex items-center justify-center">
@@ -206,7 +195,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="bg-white border-t border-gray-200 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-600">
           <p>© 2025 LyraAI. All rights reserved.</p>
