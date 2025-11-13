@@ -26,10 +26,9 @@ export default function Home() {
     router.push('/dashboard');
   };
 
-  // NEW: Route to /start page for practicing
   const handleStartPracticing = () => {
     if (session?.user) {
-      router.push('/start');  // ← CHANGED: go to /start instead of /dashboard
+      router.push('/start');
     } else {
       router.push('/api/auth/signin');
     }
@@ -101,10 +100,10 @@ export default function Home() {
               Practice behavioral, technical, system design, and case study interviews with our AI coach. Get real-time feedback and improve your skills.
             </p>
 
-            {/* CTA Buttons - UPDATED ROUTING */}
+            {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
               <button
-                onClick={handleStartPracticing}  {/* ← CHANGED: use new handler */}
+                onClick={handleStartPracticing}
                 className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:shadow-2xl transition-all duration-200 transform hover:scale-105"
               >
                 {session?.user ? 'Start Practicing' : 'Get Started Free'}
