@@ -7,6 +7,10 @@ import { interviewSessions, users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { RoomServiceClient } from 'livekit-server-sdk';
+import { isValidLanguage } from '@/lib/types/language';
+import type { SupportedLanguage } from '@/lib/types/language';
+
+const VALID_INTERVIEW_TYPES = ['behavioral', 'technical', 'system-design', 'case-study'] as const;
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,11 +23,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { interviewType } = await req.json();
+    const { interviewType, spokenLanguage = 'zh-TW' } = await req.json();
 
-    if (!interviewType) {
+    // Validate interview type
+    if (!interviewType || !VALID_INTERVIEW_TYPES.includes(interviewType)) {
       return NextResponse.json(
-        { error: 'Interview type is required' },
+        { error: 'Invalid interview type' },
+        { status: 400 }
+      );
+    }
+
+    // Validate language
+    if (!isValidLanguage(spokenLanguage)) {
+      return NextResponse.json(
+        { error: 'Invalid language. Must be zh-TW or en-US' },
         { status: 400 }
       );
     }
@@ -41,10 +54,12 @@ export async function POST(req: NextRequest) {
 
     const roomName = `interview-${nanoid(16)}`;
 
+    // Create interview session with language
     const newSession = await db.insert(interviewSessions).values({
       userId: user.id,
       roomName,
       interviewType,
+      spokenLanguage: spokenLanguage as SupportedLanguage, // Store language
       targetRole: 'Software Engineer',
       difficulty: 'medium',
       status: 'scheduled',
@@ -62,20 +77,29 @@ export async function POST(req: NextRequest) {
         name: roomName,
         emptyTimeout: 300,
         maxParticipants: 10,
+        metadata: JSON.stringify({
+          interviewType,
+          spokenLanguage, // Pass language to room metadata
+          userId: user.id,
+        }),
       });
 
-      console.log(`✅ Created LiveKit room: ${roomName}`);
+      console.log(`✅ Created LiveKit room: ${roomName} (Language: ${spokenLanguage})`);
       
-      // NOTIFY AGENT TO JOIN ROOM
+      // NOTIFY AGENT TO JOIN ROOM (with language info)
       try {
         const agentResponse = await fetch('https://python-agent-snowy-tree-6698.fly.dev/join-room', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ room_name: roomName }),
+          body: JSON.stringify({ 
+            room_name: roomName,
+            spoken_language: spokenLanguage, // Pass language to agent
+            interview_type: interviewType,
+          }),
         });
         
         if (agentResponse.ok) {
-          console.log(`🤖 Agent notified to join room: ${roomName}`);
+          console.log(`🤖 Agent notified to join room: ${roomName} (Language: ${spokenLanguage})`);
         } else {
           console.error(`⚠️ Agent notification failed:`, await agentResponse.text());
         }
@@ -87,6 +111,14 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       console.error('Error with LiveKit setup:', error);
     }
+
+    console.log('✅ Interview session created:', {
+      sessionId: newSession[0].id,
+      roomName,
+      type: interviewType,
+      language: spokenLanguage,
+      userId: user.id,
+    });
 
     return NextResponse.json({
       success: true,
