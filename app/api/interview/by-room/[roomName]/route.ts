@@ -29,10 +29,17 @@ export async function GET(
       );
     }
 
+    console.log(`✅ Found session for room ${roomName}:`, {
+      id: session.id,
+      interviewType: session.interviewType,
+      spokenLanguage: session.spokenLanguage,
+    });
+
     return NextResponse.json({
       session: {
         id: session.id,
         interviewType: session.interviewType,
+        spokenLanguage: session.spokenLanguage || 'zh-TW', // ← ADD THIS
         roomName: session.roomName,
         status: session.status,
       },
