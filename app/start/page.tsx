@@ -393,10 +393,10 @@ export default function StartPage() {
                   <button
                     key={role.value}
                     onClick={() => setCandidateRole(role.value)}
-                    className={`p-3 rounded-lg border-2 text-sm transition-all duration-200 ${
+                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-all duration-200 ${
                       candidateRole === role.value
-                        ? 'border-indigo-600 bg-indigo-50 font-medium'
-                        : 'border-gray-200 hover:border-indigo-300'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-900'
+                        : 'border-gray-200 hover:border-indigo-300 text-gray-900 hover:text-indigo-700'
                     }`}
                   >
                     {isZh ? role.label : role.labelEn}
@@ -435,7 +435,9 @@ export default function StartPage() {
                     }`}
                   >
                     <span className="text-2xl block mb-1">{ind.icon}</span>
-                    <span className="text-sm font-medium">
+                    <span className={`text-sm font-medium ${
+                      industry === ind.value ? 'text-indigo-900' : 'text-gray-700'
+                    }`}>
                       {isZh ? ind.label : ind.labelEn}
                     </span>
                   </button>
@@ -466,7 +468,9 @@ export default function StartPage() {
                         : 'border-gray-200 hover:border-indigo-300'
                     }`}
                   >
-                    <span className="font-semibold block">
+                    <span className={`font-semibold block ${
+                      seniority === level.value ? 'text-indigo-900' : 'text-gray-900'
+                    }`}>
                       {isZh ? level.label : level.labelEn}
                     </span>
                     <span className="text-xs text-gray-500">{level.years}</span>
