@@ -7,10 +7,30 @@ import '@livekit/components-styles';
 import { analytics } from '@/lib/analytics';
 
 const INTERVIEW_TYPE_INFO = {
-  behavioral: { name: 'Behavioral Interview', icon: '🗣️', color: 'blue' },
-  technical: { name: 'Technical Interview', icon: '💻', color: 'green' },
-  'system-design': { name: 'System Design', icon: '🏗️', color: 'purple' },
-  'case-study': { name: 'Case Study', icon: '📊', color: 'orange' },
+  behavioral: { name: 'Behavioral Interview', nameCn: '行為面試', icon: '🗣️', color: 'blue' },
+  technical: { name: 'Technical Interview', nameCn: '技術面試', icon: '💻', color: 'green' },
+  'system-design': { name: 'System Design', nameCn: '系統設計', icon: '🏗️', color: 'purple' },
+  'case-study': { name: 'Case Study', nameCn: '案例分析', icon: '📊', color: 'orange' },
+};
+
+const SENIORITY_LABELS: Record<string, { zh: string; en: string }> = {
+  junior: { zh: '初階', en: 'Junior' },
+  mid: { zh: '中階', en: 'Mid-level' },
+  senior: { zh: '資深', en: 'Senior' },
+  lead: { zh: '主管', en: 'Lead' },
+  executive: { zh: '高管', en: 'Executive' },
+};
+
+const INDUSTRY_LABELS: Record<string, { zh: string; en: string }> = {
+  tech: { zh: '科技業', en: 'Technology' },
+  finance: { zh: '金融業', en: 'Finance' },
+  healthcare: { zh: '醫療業', en: 'Healthcare' },
+  ecommerce: { zh: '電商業', en: 'E-commerce' },
+  manufacturing: { zh: '製造業', en: 'Manufacturing' },
+  consulting: { zh: '顧問業', en: 'Consulting' },
+  media: { zh: '媒體業', en: 'Media' },
+  education: { zh: '教育業', en: 'Education' },
+  other: { zh: '其他', en: 'Other' },
 };
 
 interface Transcript {
@@ -19,13 +39,120 @@ interface Transcript {
   timestamp: Date;
 }
 
-function InterviewControls({ sessionId, interviewType, transcripts, startTime }: { sessionId: string; interviewType: string; transcripts: Transcript[]; startTime: number }) {
+interface SessionData {
+  id: string;
+  interviewType: string;
+  spokenLanguage: string;
+  candidateRole?: string;
+  candidateSeniority?: string;
+  candidateIndustry?: string;
+  candidateYearsExperience?: number;
+}
+
+// ============================================
+// STT QUALITY HINTS COMPONENT (NEW)
+// ============================================
+function AudioQualityHints({ 
+  language, 
+  isVisible, 
+  onDismiss 
+}: { 
+  language: string; 
+  isVisible: boolean;
+  onDismiss: () => void;
+}) {
+  const isZh = language === 'zh-TW';
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed bottom-24 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-fade-in">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-lg">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className="text-amber-800 text-sm font-medium mb-2">
+              💡 {isZh ? '語音辨識小提示' : 'Audio Tips'}
+            </p>
+            <ul className="text-amber-700 text-sm space-y-1">
+              <li>🎤 {isZh ? '建議使用耳機麥克風' : 'Use a headset microphone'}</li>
+              <li>🔊 {isZh ? '說話清楚，語速適中' : 'Speak clearly at moderate pace'}</li>
+              <li>🔇 {isZh ? '找安靜的環境' : 'Find a quiet environment'}</li>
+            </ul>
+          </div>
+          <button 
+            onClick={onDismiss}
+            className="ml-2 text-amber-600 hover:text-amber-800 text-lg p-1"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// CANDIDATE PROFILE BADGE (NEW)
+// ============================================
+function CandidateProfileBadge({ session }: { session: SessionData }) {
+  const isZh = session.spokenLanguage === 'zh-TW';
+  
+  if (!session.candidateRole) return null;
+
+  const seniority = session.candidateSeniority || 'mid';
+  const industry = session.candidateIndustry || 'tech';
+  const seniorityLabel = SENIORITY_LABELS[seniority]?.[isZh ? 'zh' : 'en'] || seniority;
+  const industryLabel = INDUSTRY_LABELS[industry]?.[isZh ? 'zh' : 'en'] || industry;
+
+  return (
+    <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 mt-4">
+      <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-indigo-100">
+        <span className="flex items-center">
+          <span className="mr-1">💼</span>
+          {session.candidateRole}
+        </span>
+        <span className="text-indigo-300">•</span>
+        <span className="flex items-center">
+          <span className="mr-1">📈</span>
+          {seniorityLabel}
+        </span>
+        <span className="text-indigo-300">•</span>
+        <span className="flex items-center">
+          <span className="mr-1">🏢</span>
+          {industryLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// INTERVIEW CONTROLS
+// ============================================
+function InterviewControls({ 
+  sessionId, 
+  interviewType, 
+  transcripts, 
+  startTime,
+  language 
+}: { 
+  sessionId: string; 
+  interviewType: string; 
+  transcripts: Transcript[]; 
+  startTime: number;
+  language: string;
+}) {
   const router = useRouter();
   const room = useRoomContext();
   const [ending, setEnding] = useState(false);
+  const isZh = language === 'zh-TW';
 
   const endInterview = async () => {
-    if (!confirm('Are you sure you want to end the interview?')) {
+    const confirmMsg = isZh 
+      ? '確定要結束面試嗎？' 
+      : 'Are you sure you want to end the interview?';
+    
+    if (!confirm(confirmMsg)) {
       return;
     }
 
@@ -39,7 +166,6 @@ function InterviewControls({ sessionId, interviewType, transcripts, startTime }:
         body: JSON.stringify({ status: 'completed' }),
       });
 
-      // Track completion
       analytics.interviewCompleted(sessionId, interviewType, duration);
 
       room?.disconnect();
@@ -65,7 +191,7 @@ function InterviewControls({ sessionId, interviewType, transcripts, startTime }:
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
-            <span>Live Transcript</span>
+            <span>{isZh ? '即時逐字稿' : 'Live Transcript'}</span>
           </h3>
         </div>
         
@@ -75,7 +201,7 @@ function InterviewControls({ sessionId, interviewType, transcripts, startTime }:
         >
           {transcripts.length === 0 ? (
             <div className="text-center text-gray-400 py-8">
-              <p>Transcript will appear here as you speak...</p>
+              <p>{isZh ? '對話內容將顯示在這裡...' : 'Transcript will appear here as you speak...'}</p>
             </div>
           ) : (
             transcripts.map((transcript, idx) => (
@@ -91,7 +217,7 @@ function InterviewControls({ sessionId, interviewType, transcripts, startTime }:
                   }`}
                 >
                   <p className="text-xs font-semibold mb-1 opacity-70">
-                    {transcript.speaker === 'user' ? 'You' : 'LyraAI'}
+                    {transcript.speaker === 'user' ? (isZh ? '你' : 'You') : 'LyraAI'}
                   </p>
                   <p className="text-sm">{transcript.text}</p>
                 </div>
@@ -106,12 +232,18 @@ function InterviewControls({ sessionId, interviewType, transcripts, startTime }:
         disabled={ending}
         className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
       >
-        {ending ? 'Ending Interview...' : '🏁 End Interview & Get Feedback'}
+        {ending 
+          ? (isZh ? '結束中...' : 'Ending Interview...') 
+          : (isZh ? '🏁 結束面試並取得回饋' : '🏁 End Interview & Get Feedback')
+        }
       </button>
     </div>
   );
 }
 
+// ============================================
+// MAIN PAGE COMPONENT
+// ============================================
 export default function InterviewPage() {
   const params = useParams();
   const router = useRouter();
@@ -119,14 +251,27 @@ export default function InterviewPage() {
 
   const [token, setToken] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('');
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [interviewType, setInterviewType] = useState<string>('behavioral');
+  const [spokenLanguage, setSpokenLanguage] = useState<string>('zh-TW');
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [startTime] = useState(Date.now());
+  const [showAudioHints, setShowAudioHints] = useState(true);
   
   const lastCountRef = useRef(0);
   const noChangeCountRef = useRef(0);
+
+  const isZh = spokenLanguage === 'zh-TW';
+
+  // Auto-dismiss audio hints after 15 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowAudioHints(false);
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     fetchRoomToken();
@@ -195,10 +340,20 @@ export default function InterviewPage() {
     try {
       const sessionResponse = await fetch(`/api/interview/by-room/${roomName}`);
       if (sessionResponse.ok) {
-        const sessionData = await sessionResponse.json();
-        const realSessionId = sessionData.session.id;
-        setSessionId(realSessionId);
-        setInterviewType(sessionData.session.interviewType || 'behavioral');
+        const data = await sessionResponse.json();
+        const session = data.session;
+        setSessionId(session.id);
+        setInterviewType(session.interviewType || 'behavioral');
+        setSpokenLanguage(session.spokenLanguage || 'zh-TW');
+        setSessionData({
+          id: session.id,
+          interviewType: session.interviewType,
+          spokenLanguage: session.spokenLanguage,
+          candidateRole: session.candidateRole,
+          candidateSeniority: session.candidateSeniority,
+          candidateIndustry: session.candidateIndustry,
+          candidateYearsExperience: session.candidateYearsExperience,
+        });
       } else {
         throw new Error('Failed to fetch session data');
       }
@@ -235,7 +390,9 @@ export default function InterviewPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Connecting to interview room...</p>
+          <p className="text-gray-600">
+            {isZh ? '連接面試房間中...' : 'Connecting to interview room...'}
+          </p>
         </div>
       </div>
     );
@@ -250,7 +407,7 @@ export default function InterviewPage() {
             onClick={() => router.push('/dashboard')}
             className="text-indigo-600 hover:text-indigo-700"
           >
-            Return to Dashboard
+            {isZh ? '返回儀表板' : 'Return to Dashboard'}
           </button>
         </div>
       </div>
@@ -275,14 +432,23 @@ export default function InterviewPage() {
               <div className="flex items-center space-x-3">
                 <div className="text-3xl">{typeInfo.icon}</div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">{typeInfo.name}</h1>
+                  <h1 className="text-xl font-bold text-gray-900">
+                    {isZh ? typeInfo.nameCn : typeInfo.name}
+                  </h1>
                   <p className="text-sm text-gray-500">Room: {roomName}</p>
                 </div>
               </div>
             </div>
-            <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>Live</span>
+            <div className="flex items-center space-x-3">
+              {/* Language Badge */}
+              <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
+                {spokenLanguage === 'zh-TW' ? '🇹🇼 中文' : '🇺🇸 English'}
+              </div>
+              {/* Live Badge */}
+              <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span>Live</span>
+              </div>
             </div>
           </div>
         </div>
@@ -307,9 +473,19 @@ export default function InterviewPage() {
                     </svg>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Connected to Interview</h2>
-                    <p className="text-indigo-100">The AI interviewer will speak first. Listen carefully and respond naturally.</p>
+                    <h2 className="text-2xl font-bold text-white mb-2">
+                      {isZh ? '已連接面試' : 'Connected to Interview'}
+                    </h2>
+                    <p className="text-indigo-100">
+                      {isZh 
+                        ? 'AI面試官會先開始說話。請仔細聆聽並自然地回答。'
+                        : 'The AI interviewer will speak first. Listen carefully and respond naturally.'
+                      }
+                    </p>
                   </div>
+                  
+                  {/* Candidate Profile Badge (NEW) */}
+                  {sessionData && <CandidateProfileBadge session={sessionData} />}
                   
                   <div className="flex items-center justify-center space-x-3 py-4">
                     <div className="p-3 bg-white/20 backdrop-blur-sm rounded-full">
@@ -318,8 +494,12 @@ export default function InterviewPage() {
                       </svg>
                     </div>
                     <div>
-                      <p className="text-white font-semibold">Microphone Active</p>
-                      <p className="text-indigo-100 text-sm">Speak naturally - the AI is listening</p>
+                      <p className="text-white font-semibold">
+                        {isZh ? '麥克風已開啟' : 'Microphone Active'}
+                      </p>
+                      <p className="text-indigo-100 text-sm">
+                        {isZh ? '自然地說話 - AI正在聆聽' : 'Speak naturally - the AI is listening'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -327,12 +507,25 @@ export default function InterviewPage() {
             </div>
 
             <div className="lg:col-span-1">
-              <InterviewControls sessionId={sessionId} interviewType={interviewType} transcripts={transcripts} startTime={startTime} />
+              <InterviewControls 
+                sessionId={sessionId} 
+                interviewType={interviewType} 
+                transcripts={transcripts} 
+                startTime={startTime}
+                language={spokenLanguage}
+              />
             </div>
           </div>
           <RoomAudioRenderer />
         </LiveKitRoom>
       </main>
+
+      {/* STT Quality Hints (NEW) */}
+      <AudioQualityHints 
+        language={spokenLanguage}
+        isVisible={showAudioHints}
+        onDismiss={() => setShowAudioHints(false)}
+      />
     </div>
   );
 }

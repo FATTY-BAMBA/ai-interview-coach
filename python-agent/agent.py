@@ -49,7 +49,11 @@ STT_MODEL = os.getenv("STT_MODEL", "gpt-4o-transcribe")
 TTS_VOICE_EN = os.getenv("TTS_VOICE_EN", "alloy")
 TTS_VOICE_ZH_TW = os.getenv("TTS_VOICE_ZH_TW", "nova")
 
-MIN_TRANSCRIPT_CHARS = int(os.getenv("MIN_TRANSCRIPT_CHARS", "2"))
+# STT Quality Settings
+MIN_TRANSCRIPT_CHARS = int(os.getenv("MIN_TRANSCRIPT_CHARS", "5"))  # Increased from 2
+MIN_MEANINGFUL_WORDS = int(os.getenv("MIN_MEANINGFUL_WORDS", "3"))  # Minimum words to process
+MAX_GARBLED_RATIO = float(os.getenv("MAX_GARBLED_RATIO", "0.3"))  # Max ratio of garbage chars
+
 SESSION_LIFETIME_S = int(os.getenv("SESSION_LIFETIME_S", "3600"))
 
 API_URL = os.getenv("NEXT_PUBLIC_APP_URL", "http://localhost:3000")
@@ -70,6 +74,12 @@ class InterviewState:
     interview_type: str
     spoken_language: str
     
+    # NEW: Candidate Profile
+    candidate_role: str = "Software Engineer"
+    candidate_seniority: str = "mid"
+    candidate_industry: str = "tech"
+    candidate_years_experience: int = 3
+    
     # State tracking
     current_stage: str = "intro"  # intro -> questions -> wrap_up -> ended
     questions_asked: List[str] = field(default_factory=list)
@@ -81,6 +91,11 @@ class InterviewState:
     last_activity_time: float = field(default_factory=time.time)
     silence_retries: int = 0
     user_responded: bool = False
+    
+    # STT quality tracking
+    consecutive_stt_failures: int = 0
+    total_repair_turns: int = 0
+    last_user_text: str = ""
     
     # Competencies to cover (behavioral)
     available_topics: List[str] = field(default_factory=lambda: [
@@ -252,13 +267,46 @@ FOLLOWUP_TEMPLATES = {
 
 # ---------- LANGUAGE-LOCKED INTERVIEWER PROMPT ----------
 def get_interviewer_prompt(state: InterviewState) -> str:
-    """Generate interviewer-only prompt (NO teaching, NO coaching)"""
+    """Generate interviewer-only prompt with candidate profile (NO teaching, NO coaching)"""
     
     lang = state.spoken_language
     interview_type = state.interview_type
+    role = state.candidate_role
+    seniority = state.candidate_seniority
+    industry = state.candidate_industry
+    years = state.candidate_years_experience
+    
+    # Seniority labels
+    seniority_labels = {
+        "zh-TW": {"junior": "初階", "mid": "中階", "senior": "資深", "lead": "主管級", "executive": "高管"},
+        "en-US": {"junior": "Junior", "mid": "Mid-level", "senior": "Senior", "lead": "Lead/Manager", "executive": "Executive"}
+    }
+    seniority_label = seniority_labels.get(lang, seniority_labels["en-US"]).get(seniority, seniority)
+    
+    # Industry labels
+    industry_labels = {
+        "zh-TW": {"tech": "科技業", "finance": "金融業", "healthcare": "醫療業", "ecommerce": "電商業", 
+                  "manufacturing": "製造業", "consulting": "顧問業", "media": "媒體業", "education": "教育業", "other": ""},
+        "en-US": {"tech": "Technology", "finance": "Finance", "healthcare": "Healthcare", "ecommerce": "E-commerce",
+                  "manufacturing": "Manufacturing", "consulting": "Consulting", "media": "Media", "education": "Education", "other": ""}
+    }
+    industry_label = industry_labels.get(lang, industry_labels["en-US"]).get(industry, industry)
     
     if lang == "zh-TW":
         return f"""你是一位專業的面試官，正在進行{interview_type}面試。
+
+👤【求職者背景】
+- 應徵職位：{role}
+- 經驗級別：{seniority_label}（約{years}年經驗）
+- 目標產業：{industry_label}
+
+📌【根據背景調整問題】
+- 對{seniority_label}求職者，問題難度和期望要相應調整
+- {"問基礎執行類問題，關注學習能力和團隊協作" if seniority == "junior" else ""}
+- {"問專案管理和獨立解決問題的經驗" if seniority == "mid" else ""}
+- {"問技術決策、架構設計、mentor經驗" if seniority == "senior" else ""}
+- {"問團隊管理、策略規劃、跨部門協調" if seniority in ["lead", "executive"] else ""}
+- 可以針對{industry_label}產業特性提問
 
 🔒【語言規則 - 絕對不可違反】
 - 全程只能使用繁體中文（台灣用語）
@@ -311,6 +359,19 @@ def get_interviewer_prompt(state: InterviewState) -> str:
     
     else:  # en-US
         return f"""You are a professional interviewer conducting a {interview_type} interview.
+
+👤【CANDIDATE PROFILE】
+- Target Role: {role}
+- Experience Level: {seniority_label} (~{years} years experience)
+- Target Industry: {industry_label}
+
+📌【ADJUST QUESTIONS BASED ON PROFILE】
+- Calibrate difficulty and expectations for {seniority_label} candidates
+- {"Ask about execution, learning ability, teamwork" if seniority == "junior" else ""}
+- {"Ask about project ownership, independent problem-solving" if seniority == "mid" else ""}
+- {"Ask about technical decisions, architecture, mentoring" if seniority == "senior" else ""}
+- {"Ask about team management, strategy, cross-functional coordination" if seniority in ["lead", "executive"] else ""}
+- Can ask {industry_label}-specific questions
 
 🔒【LANGUAGE RULES - ABSOLUTE】
 - Speak ONLY in English throughout
@@ -447,7 +508,88 @@ def build_room_input_options() -> Optional[object]:
         return None
 
 def should_process(text: str) -> bool:
-    return bool(text and len(text.strip()) >= MIN_TRANSCRIPT_CHARS)
+    """Check if text is meaningful enough to process"""
+    if not text:
+        return False
+    
+    text = text.strip()
+    
+    # Must meet minimum character length
+    if len(text) < MIN_TRANSCRIPT_CHARS:
+        return False
+    
+    # Count actual words (Chinese characters count as words)
+    # For Chinese: count characters; For English: count words
+    chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
+    english_words = len(re.findall(r'[a-zA-Z]+', text))
+    word_count = chinese_chars + english_words
+    
+    if word_count < MIN_MEANINGFUL_WORDS:
+        return False
+    
+    return True
+
+def is_garbled_text(text: str) -> bool:
+    """Detect if transcription is likely garbled/garbage"""
+    if not text:
+        return True
+    
+    text = text.strip()
+    
+    # Check for common garbage patterns
+    garbage_patterns = [
+        r'^[.\s,]+$',  # Only punctuation
+        r'^(um|uh|eh|ah|oh)+$',  # Only filler words
+        r'^\W+$',  # Only non-word characters
+        r'^(.)\1{3,}',  # Repeated characters (e.g., "aaaa")
+    ]
+    
+    for pattern in garbage_patterns:
+        if re.match(pattern, text.lower()):
+            return True
+    
+    # Check ratio of strange characters
+    total_chars = len(text)
+    if total_chars == 0:
+        return True
+    
+    # Valid characters: Chinese, English, numbers, common punctuation
+    valid_chars = len(re.findall(r'[\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s.,!?，。！？、]', text))
+    valid_ratio = valid_chars / total_chars
+    
+    if valid_ratio < (1 - MAX_GARBLED_RATIO):
+        return True
+    
+    return False
+
+def needs_repair_turn(text: str, consecutive_failures: int) -> bool:
+    """Determine if we should ask user to repeat"""
+    if not text or len(text.strip()) < 2:
+        return consecutive_failures >= 2
+    
+    if is_garbled_text(text):
+        return True
+    
+    # Very short responses might need clarification
+    if len(text.strip()) < 5 and consecutive_failures >= 1:
+        return True
+    
+    return False
+
+
+# ---------- REPAIR TURN MESSAGES ----------
+REPAIR_MESSAGES = {
+    "zh-TW": [
+        "不好意思，剛剛那段我沒聽清楚，可以再說一次嗎？",
+        "抱歉，聲音有點斷斷續續，能請你再重複一下嗎？",
+        "我這邊收音不太清楚，可以請你說慢一點再講一次嗎？",
+    ],
+    "en-US": [
+        "Sorry, I didn't catch that clearly. Could you repeat that?",
+        "Apologies, the audio was a bit choppy. Could you say that again?",
+        "I couldn't hear that well. Could you speak a bit slower and repeat?",
+    ]
+}
 
 def detect_topic_from_text(text: str) -> Optional[str]:
     """Detect which topic the conversation is about"""
@@ -511,9 +653,19 @@ async def _flush_transcripts():
 
 
 # ---------- FETCH SESSION BY ROOM NAME ----------
-async def fetch_session_by_room(room_name: str) -> tuple[str, str, str]:
-    """Fetch session ID, interview type, and spoken language from database"""
+async def fetch_session_by_room(room_name: str) -> Dict:
+    """Fetch full session data including candidate profile from database"""
     log = logging.getLogger("agent")
+    default_data = {
+        "session_id": str(uuid.uuid4()),
+        "interview_type": "behavioral",
+        "spoken_language": "zh-TW",
+        "candidate_role": "Software Engineer",
+        "candidate_seniority": "mid",
+        "candidate_industry": "tech",
+        "candidate_years_experience": 3,
+    }
+    
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.get(
@@ -523,17 +675,26 @@ async def fetch_session_by_room(room_name: str) -> tuple[str, str, str]:
             if r.status_code == 200:
                 data = r.json()
                 session = data.get("session", {})
-                session_id = session.get("id")
-                interview_type = session.get("interviewType", "behavioral")
-                spoken_language = session.get("spokenLanguage", "zh-TW")
-                log.info(f"✅ Found session: {session_id}, type: {interview_type}, language: {spoken_language}")
-                return session_id, interview_type, spoken_language
+                result = {
+                    "session_id": session.get("id", default_data["session_id"]),
+                    "interview_type": session.get("interviewType", "behavioral"),
+                    "spoken_language": session.get("spokenLanguage", "zh-TW"),
+                    "candidate_role": session.get("candidateRole", "Software Engineer"),
+                    "candidate_seniority": session.get("candidateSeniority", "mid"),
+                    "candidate_industry": session.get("candidateIndustry", "tech"),
+                    "candidate_years_experience": session.get("candidateYearsExperience", 3),
+                }
+                log.info(f"✅ Session loaded: {result['session_id']}")
+                log.info(f"   Language: {result['spoken_language']}, Type: {result['interview_type']}")
+                log.info(f"   Role: {result['candidate_role']}, Seniority: {result['candidate_seniority']}")
+                log.info(f"   Industry: {result['candidate_industry']}, Years: {result['candidate_years_experience']}")
+                return result
             else:
                 log.warning(f"Session lookup failed: {r.status_code}")
     except Exception as e:
         log.warning(f"Failed to fetch session by room: {e}")
     
-    return str(uuid.uuid4()), "behavioral", "zh-TW"
+    return default_data
 
 
 # ---------- ENTRYPOINT ----------
@@ -542,24 +703,40 @@ async def entrypoint(ctx: JobContext):
 
     room_name = ctx.room.name or ""
     
-    # Fetch session info
-    session_id, interview_type, spoken_language = await fetch_session_by_room(room_name)
+    # Fetch session info (now includes candidate profile)
+    session_data = await fetch_session_by_room(room_name)
     
-    # Initialize interview state
+    session_id = session_data["session_id"]
+    interview_type = session_data["interview_type"]
+    spoken_language = session_data["spoken_language"]
+    
+    # Initialize interview state with candidate profile
     state = InterviewState(
         session_id=session_id,
         interview_type=interview_type,
         spoken_language=spoken_language,
+        candidate_role=session_data["candidate_role"],
+        candidate_seniority=session_data["candidate_seniority"],
+        candidate_industry=session_data["candidate_industry"],
+        candidate_years_experience=session_data["candidate_years_experience"],
     )
     
     log.info(f"🌐 Language locked to: {spoken_language}")
     log.info(f"📋 Interview type: {interview_type}")
+    log.info(f"👤 Candidate: {state.candidate_role} ({state.candidate_seniority}) in {state.candidate_industry}")
 
     await ctx.connect(auto_subscribe="audio_only")
     log.info("✅ Connected to room: %s", room_name)
 
-    # Configure STT/LLM/TTS
-    stt = openai.STT(model=STT_MODEL)
+    # Configure STT with explicit language hint for better accuracy
+    # Language hint helps the model expect certain language patterns
+    stt_language = "zh" if spoken_language == "zh-TW" else "en"
+    stt = openai.STT(
+        model=STT_MODEL,
+        language=stt_language,  # Explicit language hint
+    )
+    log.info(f"🎤 STT configured with language hint: {stt_language}")
+    
     llm_instance = openai.LLM(model=LLM_MODEL)
     
     # Select TTS voice based on language
@@ -570,11 +747,23 @@ async def entrypoint(ctx: JobContext):
         tts = openai.TTS(voice=TTS_VOICE_EN)
         log.info(f"🔊 Using TTS voice: {TTS_VOICE_EN} (English)")
 
+    # Configure VAD with tuned settings for better sentence detection
+    # - min_speech_duration: wait longer before considering speech started
+    # - min_silence_duration: wait longer pause before ending utterance
+    # - padding_duration: include more audio before/after speech
+    vad = silero.VAD.load(
+        min_speech_duration=0.25,    # Require 250ms of speech to start (default: 0.1)
+        min_silence_duration=0.8,    # Wait 800ms of silence before ending (default: 0.3)
+        padding_duration=0.3,        # Include 300ms padding (default: 0.1)
+        activation_threshold=0.5,    # Confidence threshold (default: 0.5)
+    )
+    log.info("🔇 VAD configured: min_silence=0.8s, min_speech=0.25s")
+
     session = AgentSession(
         stt=stt,
         llm=llm_instance,
         tts=tts,
-        vad=silero.VAD.load(),
+        vad=vad,
     )
 
     with suppress(Exception):
@@ -583,11 +772,14 @@ async def entrypoint(ctx: JobContext):
 
     # Track for greeting tasks
     greeting_tasks = []
+    
+    # Track for repair turns
+    pending_repair = {"needed": False}
 
     # Subscribe to conversation items
     @session.on("conversation_item_added")
     def on_conversation_item(event: ConversationItemAddedEvent):
-        """Capture both user and agent messages with state tracking"""
+        """Capture both user and agent messages with state tracking and repair detection"""
         try:
             role = event.item.role
             text = event.item.text_content
@@ -602,11 +794,26 @@ async def entrypoint(ctx: JobContext):
                     if not task.done():
                         task.cancel()
                 
-                # Detect topic from user's response
-                topic = detect_topic_from_text(text)
-                if topic:
-                    state.mark_topic_covered(topic)
-                    log.info(f"📌 Topic detected and marked: {topic}")
+                # Check STT quality
+                if is_garbled_text(text) or not should_process(text):
+                    state.consecutive_stt_failures += 1
+                    log.warning(f"⚠️ Poor STT quality detected: '{text}' (failures: {state.consecutive_stt_failures})")
+                    
+                    # Trigger repair turn if needed
+                    if needs_repair_turn(text, state.consecutive_stt_failures):
+                        pending_repair["needed"] = True
+                        state.total_repair_turns += 1
+                        log.info(f"🔄 Repair turn needed (total: {state.total_repair_turns})")
+                else:
+                    # Good transcription - reset failure counter
+                    state.consecutive_stt_failures = 0
+                    state.last_user_text = text
+                    
+                    # Detect topic from user's response
+                    topic = detect_topic_from_text(text)
+                    if topic:
+                        state.mark_topic_covered(topic)
+                        log.info(f"📌 Topic detected and marked: {topic}")
             
             elif role == "assistant":
                 # Track praise usage
@@ -670,11 +877,23 @@ async def entrypoint(ctx: JobContext):
         task = asyncio.create_task(send_greeting())
         greeting_tasks.append(task)
 
-    # ---------- NEVER GIVE UP WATCHDOG ----------
+    # ---------- NEVER GIVE UP WATCHDOG + REPAIR TURNS ----------
     async def watchdog():
-        """Ensure interview never ends abruptly"""
+        """Ensure interview never ends abruptly and handle repair turns"""
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(3)  # Check more frequently for repair turns
+            
+            # Handle pending repair turns
+            if pending_repair["needed"] and state.total_repair_turns <= 3:
+                pending_repair["needed"] = False
+                repair_idx = min(state.total_repair_turns - 1, len(REPAIR_MESSAGES[spoken_language]) - 1)
+                repair_msg = REPAIR_MESSAGES[spoken_language][repair_idx]
+                with suppress(Exception):
+                    if hasattr(session, "say"):
+                        await session.say(repair_msg, allow_interruptions=True)
+                log.info(f"🔄 Sent repair turn: {repair_msg}")
+                state.last_activity_time = time.time()
+                continue
             
             current_time = time.time()
             silence_duration = current_time - state.last_activity_time

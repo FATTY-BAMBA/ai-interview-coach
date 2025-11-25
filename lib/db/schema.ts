@@ -19,6 +19,14 @@ export const interviewSessions = pgTable('interview_sessions', {
   interviewType: varchar('interview_type', { length: 50 }).notNull(),
   targetRole: varchar('target_role', { length: 255 }).default('Software Engineer'),
   difficulty: varchar('difficulty', { length: 50 }).default('medium'),
+  spokenLanguage: varchar('spoken_language', { length: 10 }).default('zh-TW'),
+  
+  // NEW: Candidate Profile Fields (Phase 3)
+  candidateRole: varchar('candidate_role', { length: 100 }),
+  candidateSeniority: varchar('candidate_seniority', { length: 50 }),
+  candidateIndustry: varchar('candidate_industry', { length: 100 }),
+  candidateYearsExperience: integer('candidate_years_experience'),
+  
   status: varchar('status', { length: 50 }).default('scheduled'),
   startedAt: timestamp('started_at'),
   endedAt: timestamp('ended_at'),
@@ -78,3 +86,68 @@ export const evaluationReportsRelations = relations(evaluationReports, ({ one })
     references: [interviewSessions.id],
   }),
 }));
+
+// ============================================
+// TYPE EXPORTS (for TypeScript)
+// ============================================
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
+export type InterviewSession = typeof interviewSessions.$inferSelect;
+export type NewInterviewSession = typeof interviewSessions.$inferInsert;
+
+export type ConversationTurn = typeof conversationTurns.$inferSelect;
+export type NewConversationTurn = typeof conversationTurns.$inferInsert;
+
+export type EvaluationReport = typeof evaluationReports.$inferSelect;
+export type NewEvaluationReport = typeof evaluationReports.$inferInsert;
+
+// ============================================
+// CANDIDATE PROFILE CONSTANTS
+// ============================================
+
+export const SENIORITY_LEVELS = [
+  { value: 'junior', label: '初階 Junior', labelEn: 'Junior (0-2 years)' },
+  { value: 'mid', label: '中階 Mid-level', labelEn: 'Mid-level (2-5 years)' },
+  { value: 'senior', label: '資深 Senior', labelEn: 'Senior (5-8 years)' },
+  { value: 'lead', label: '主管 Lead/Manager', labelEn: 'Lead/Manager (8+ years)' },
+  { value: 'executive', label: '高管 Executive', labelEn: 'Executive (10+ years)' },
+] as const;
+
+export const INDUSTRIES = [
+  { value: 'tech', label: '科技業', labelEn: 'Technology' },
+  { value: 'finance', label: '金融業', labelEn: 'Finance/Banking' },
+  { value: 'healthcare', label: '醫療業', labelEn: 'Healthcare' },
+  { value: 'ecommerce', label: '電商業', labelEn: 'E-commerce/Retail' },
+  { value: 'manufacturing', label: '製造業', labelEn: 'Manufacturing' },
+  { value: 'consulting', label: '顧問業', labelEn: 'Consulting' },
+  { value: 'media', label: '媒體業', labelEn: 'Media/Entertainment' },
+  { value: 'education', label: '教育業', labelEn: 'Education' },
+  { value: 'government', label: '公部門', labelEn: 'Government/Public Sector' },
+  { value: 'other', label: '其他', labelEn: 'Other' },
+] as const;
+
+export const COMMON_ROLES = [
+  // Tech
+  { value: 'software-engineer', label: '軟體工程師', labelEn: 'Software Engineer' },
+  { value: 'frontend-engineer', label: '前端工程師', labelEn: 'Frontend Engineer' },
+  { value: 'backend-engineer', label: '後端工程師', labelEn: 'Backend Engineer' },
+  { value: 'fullstack-engineer', label: '全端工程師', labelEn: 'Fullstack Engineer' },
+  { value: 'data-scientist', label: '資料科學家', labelEn: 'Data Scientist' },
+  { value: 'data-engineer', label: '資料工程師', labelEn: 'Data Engineer' },
+  { value: 'ml-engineer', label: 'ML工程師', labelEn: 'ML Engineer' },
+  { value: 'devops-engineer', label: 'DevOps工程師', labelEn: 'DevOps Engineer' },
+  { value: 'product-manager', label: '產品經理', labelEn: 'Product Manager' },
+  { value: 'project-manager', label: '專案經理', labelEn: 'Project Manager' },
+  { value: 'engineering-manager', label: '工程經理', labelEn: 'Engineering Manager' },
+  { value: 'ux-designer', label: 'UX設計師', labelEn: 'UX Designer' },
+  { value: 'ui-designer', label: 'UI設計師', labelEn: 'UI Designer' },
+  // General
+  { value: 'marketing-manager', label: '行銷經理', labelEn: 'Marketing Manager' },
+  { value: 'sales-manager', label: '業務經理', labelEn: 'Sales Manager' },
+  { value: 'hr-manager', label: '人資經理', labelEn: 'HR Manager' },
+  { value: 'business-analyst', label: '商業分析師', labelEn: 'Business Analyst' },
+  { value: 'consultant', label: '顧問', labelEn: 'Consultant' },
+  { value: 'other', label: '其他職位', labelEn: 'Other Role' },
+] as const;
