@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { analytics } from '@/lib/analytics';
@@ -10,6 +10,7 @@ const INTERVIEW_TYPES = [
   {
     id: 'behavioral',
     name: 'Behavioral Interview',
+    nameCn: '行為面試',
     description: 'Practice STAR-method answers for behavioral questions',
     icon: '🗣️',
     color: 'from-blue-500 to-blue-600',
@@ -17,6 +18,7 @@ const INTERVIEW_TYPES = [
   {
     id: 'technical',
     name: 'Technical Interview',
+    nameCn: '技術面試',
     description: 'Code and algorithm questions with real-time feedback',
     icon: '💻',
     color: 'from-green-500 to-green-600',
@@ -24,6 +26,7 @@ const INTERVIEW_TYPES = [
   {
     id: 'system-design',
     name: 'System Design',
+    nameCn: '系統設計',
     description: 'Architecture discussions and scalability questions',
     icon: '🏗️',
     color: 'from-purple-500 to-purple-600',
@@ -31,6 +34,7 @@ const INTERVIEW_TYPES = [
   {
     id: 'case-study',
     name: 'Case Study',
+    nameCn: '案例分析',
     description: 'Business analysis and consulting-style interviews',
     icon: '📊',
     color: 'from-orange-500 to-orange-600',
@@ -50,6 +54,14 @@ interface InterviewSession {
   roomName: string;
   transcripts?: any[];
   evaluationReports?: any[];
+}
+
+interface Recording {
+  sessionId: string;
+  interviewType: string;
+  recordingUrl: string;
+  createdAt: string;
+  duration?: number;
 }
 
 interface DashboardStats {
@@ -88,16 +100,165 @@ interface SkillTrends {
   totalEvaluations: number;
 }
 
+// ============================================
+// AUDIO PLAYER COMPONENT
+// ============================================
+function AudioPlayerCard({ recording }: { recording: Recording }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const router = useRouter();
+
+  const typeInfo = getInterviewTypeInfo(recording.interviewType);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-TW', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100 hover:shadow-lg transition-shadow">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <span className="text-2xl">{typeInfo.icon}</span>
+          <div>
+            <div className="text-sm font-semibold text-gray-900">{typeInfo.nameCn || typeInfo.name}</div>
+            <div className="text-xs text-gray-500">{formatDate(recording.createdAt)}</div>
+          </div>
+        </div>
+        <button
+          onClick={() => router.push(`/evaluation/${recording.sessionId}`)}
+          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+        >
+          查看評估 →
+        </button>
+      </div>
+
+      {/* Audio Element (hidden) */}
+      <audio
+        ref={audioRef}
+        src={recording.recordingUrl}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={handleEnded}
+      />
+
+      {/* Player Controls */}
+      <div className="bg-gray-50 rounded-lg p-3">
+        <div className="flex items-center space-x-3">
+          {/* Play/Pause Button */}
+          <button
+            onClick={togglePlay}
+            className="w-10 h-10 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition-colors"
+          >
+            {isPlaying ? (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
+          </button>
+
+          {/* Progress Bar */}
+          <div className="flex-1">
+            <input
+              type="range"
+              min="0"
+              max={duration || 100}
+              value={currentTime}
+              onChange={handleSeek}
+              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </div>
+
+          {/* Download Button */}
+          <a
+            href={recording.recordingUrl}
+            download={`interview-${recording.sessionId}.webm`}
+            className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+            title="下載錄音"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// MAIN DASHBOARD COMPONENT
+// ============================================
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [creating, setCreating] = useState<string | null>(null);
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [recordings, setRecordings] = useState<Recording[]>([]); // NEW
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [skillTrends, setSkillTrends] = useState<SkillTrends | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingTrends, setLoadingTrends] = useState(true);
+  const [loadingRecordings, setLoadingRecordings] = useState(true); // NEW
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -111,6 +272,7 @@ export default function DashboardPage() {
       fetchSessions();
       fetchStats();
       fetchSkillTrends();
+      fetchRecordings(); // NEW
     }
   }, [session]);
 
@@ -153,6 +315,21 @@ export default function DashboardPage() {
       console.error('Error fetching skill trends:', error);
     } finally {
       setLoadingTrends(false);
+    }
+  };
+
+  // NEW: Fetch recent recordings
+  const fetchRecordings = async () => {
+    try {
+      const response = await fetch('/api/dashboard/recordings');
+      if (response.ok) {
+        const data = await response.json();
+        setRecordings(data.recordings || []);
+      }
+    } catch (error) {
+      console.error('Error fetching recordings:', error);
+    } finally {
+      setLoadingRecordings(false);
     }
   };
 
@@ -476,6 +653,28 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* NEW: Recent Recordings Section */}
+        {!loadingRecordings && recordings.length > 0 && (
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">🎧 最近錄音 / Recent Recordings</h2>
+                <p className="text-sm text-gray-600 mt-1">回顧你最近的面試錄音（最多保留 3 筆）</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-600">錄音數量</div>
+                <div className="text-lg font-bold text-indigo-600">{recordings.length} / 3</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {recordings.map((recording) => (
+                <AudioPlayerCard key={recording.sessionId} recording={recording} />
+              ))}
             </div>
           </div>
         )}
