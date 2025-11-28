@@ -33,15 +33,22 @@ export async function GET(
       id: session.id,
       interviewType: session.interviewType,
       spokenLanguage: session.spokenLanguage,
+      feedbackMode: session.feedbackMode,
     });
 
     return NextResponse.json({
       session: {
         id: session.id,
         interviewType: session.interviewType,
-        spokenLanguage: session.spokenLanguage || 'zh-TW', // ← ADD THIS
+        spokenLanguage: session.spokenLanguage || 'zh-TW',
+        feedbackMode: session.feedbackMode || 'real', // NEW
         roomName: session.roomName,
         status: session.status,
+        // Candidate Profile Fields
+        candidateRole: session.candidateRole,
+        candidateSeniority: session.candidateSeniority,
+        candidateIndustry: session.candidateIndustry,
+        candidateYearsExperience: session.candidateYearsExperience,
       },
     });
   } catch (error) {
