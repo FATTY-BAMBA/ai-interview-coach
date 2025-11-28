@@ -21,11 +21,14 @@ export const interviewSessions = pgTable('interview_sessions', {
   difficulty: varchar('difficulty', { length: 50 }).default('medium'),
   spokenLanguage: varchar('spoken_language', { length: 10 }).default('zh-TW'),
   
-  // NEW: Candidate Profile Fields (Phase 3)
+  // Candidate Profile Fields (Phase 3)
   candidateRole: varchar('candidate_role', { length: 100 }),
   candidateSeniority: varchar('candidate_seniority', { length: 50 }),
   candidateIndustry: varchar('candidate_industry', { length: 100 }),
   candidateYearsExperience: integer('candidate_years_experience'),
+  
+  // NEW: Feedback Mode (Phase 4 - Practice vs Real)
+  feedbackMode: varchar('feedback_mode', { length: 20 }).default('real'), // 'practice' or 'real'
   
   status: varchar('status', { length: 50 }).default('scheduled'),
   startedAt: timestamp('started_at'),
@@ -150,4 +153,13 @@ export const COMMON_ROLES = [
   { value: 'business-analyst', label: '商業分析師', labelEn: 'Business Analyst' },
   { value: 'consultant', label: '顧問', labelEn: 'Consultant' },
   { value: 'other', label: '其他職位', labelEn: 'Other Role' },
+] as const;
+
+// ============================================
+// FEEDBACK MODE CONSTANTS (Phase 4)
+// ============================================
+
+export const FEEDBACK_MODES = [
+  { value: 'practice', label: '練習模式', labelEn: 'Practice Mode', icon: '🎓' },
+  { value: 'real', label: '實戰模式', labelEn: 'Real Mode', icon: '💼' },
 ] as const;

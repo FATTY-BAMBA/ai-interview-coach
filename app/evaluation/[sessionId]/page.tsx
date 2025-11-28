@@ -36,6 +36,8 @@ interface Evaluation {
 interface SessionInfo {
   interviewType: string;
   spokenLanguage: string;
+  feedbackMode?: 'practice' | 'real'; // NEW
+  recordingUrl?: string; // NEW
   createdAt: string;
 }
 
@@ -78,12 +80,12 @@ export default function EvaluationPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // NEW: Incomplete interview state
+  // Incomplete interview state
   const [isIncomplete, setIsIncomplete] = useState(false);
   const [incompleteStats, setIncompleteStats] = useState<IncompleteStats | null>(null);
   const [incompleteMessage, setIncompleteMessage] = useState<string>('');
   
-  // NEW: Competency details toggle
+  // Competency details toggle
   const [showCompetencyDetails, setShowCompetencyDetails] = useState(false);
 
   const lang = sessionInfo?.spokenLanguage || 'zh-TW';
@@ -119,6 +121,8 @@ export default function EvaluationPage() {
         setSessionInfo({
           interviewType: data.session.interviewType,
           spokenLanguage: data.session.spokenLanguage || 'zh-TW',
+          feedbackMode: data.session.feedbackMode, // NEW
+          recordingUrl: data.session.recordingUrl, // NEW
           createdAt: data.session.createdAt,
         });
       }
@@ -160,7 +164,7 @@ export default function EvaluationPage() {
 
       const data = await response.json();
 
-      // NEW: Handle incomplete interview response
+      // Handle incomplete interview response
       if (response.status === 400 && data.canEvaluate === false) {
         setIsIncomplete(true);
         setIncompleteStats(data.stats);
@@ -259,6 +263,11 @@ export default function EvaluationPage() {
               </h1>
               <p className="text-sm text-gray-500">
                 {sessionInfo && INTERVIEW_TYPE_LABELS[sessionInfo.interviewType]?.[isZh ? 'zh' : 'en']}
+                {sessionInfo?.feedbackMode && (
+                  <span className="ml-2">
+                    {sessionInfo.feedbackMode === 'practice' ? '🎓' : '💼'}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -274,7 +283,7 @@ export default function EvaluationPage() {
   );
 
   // ============================================
-  // INCOMPLETE INTERVIEW STATE (NEW!)
+  // INCOMPLETE INTERVIEW STATE
   // ============================================
   
   if (isIncomplete) {
@@ -446,7 +455,7 @@ export default function EvaluationPage() {
               </div>
             </div>
 
-            {/* NEW: Competency Breakdown (Collapsible) */}
+            {/* Competency Breakdown (Collapsible) */}
             {evaluation.competencyEvaluations && evaluation.competencyEvaluations.length > 0 && (
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -549,7 +558,7 @@ export default function EvaluationPage() {
               </div>
             </div>
 
-            {/* NEW: Action Items */}
+            {/* Action Items */}
             {evaluation.actionItems && evaluation.actionItems.length > 0 && (
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <div className="flex items-center mb-4">
@@ -581,6 +590,43 @@ export default function EvaluationPage() {
                 {evaluation.detailedFeedback}
               </p>
             </div>
+
+            {/* NEW: Recording Playback */}
+            {sessionInfo?.recordingUrl && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <div className="flex items-center mb-4">
+                  <span className="text-2xl mr-2">🎧</span>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {isZh ? '面試錄音' : 'Interview Recording'}
+                  </h3>
+                </div>
+                
+                {/* Audio Player */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <audio 
+                    controls 
+                    className="w-full"
+                    src={sessionInfo.recordingUrl}
+                  >
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+                
+                {/* Download Button */}
+                <div className="mt-4 flex justify-end">
+                  <a
+                    href={sessionInfo.recordingUrl}
+                    download={`interview-${sessionId}.webm`}
+                    className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>{isZh ? '下載錄音' : 'Download Recording'}</span>
+                  </a>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

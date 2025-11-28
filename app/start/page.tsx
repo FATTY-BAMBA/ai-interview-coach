@@ -47,7 +47,37 @@ const INTERVIEW_TYPES = [
   },
 ];
 
-// NEW: Candidate Profile Options
+// NEW: Feedback Mode Options
+const FEEDBACK_MODES = [
+  {
+    id: 'practice',
+    name: 'Practice Mode',
+    nameCn: '練習模式',
+    description: 'Get instant tips after each answer. Perfect for learning.',
+    descriptionCn: '每個回答後獲得即時提示，適合學習。',
+    icon: '🎓',
+    color: 'from-green-500 to-emerald-600',
+    features: {
+      en: ['Instant feedback after each answer', 'Hints and suggestions', 'Lower pressure'],
+      zh: ['每答完一題即時回饋', '提供提示和建議', '壓力較低'],
+    },
+  },
+  {
+    id: 'real',
+    name: 'Real Mode',
+    nameCn: '實戰模式',
+    description: 'Realistic interview simulation. Feedback only at the end.',
+    descriptionCn: '模擬真實面試，結束後才有回饋。',
+    icon: '💼',
+    color: 'from-indigo-500 to-purple-600',
+    features: {
+      en: ['No instant feedback', 'Realistic pressure', 'Full evaluation at end'],
+      zh: ['沒有即時回饋', '模擬真實壓力', '結束後完整評估'],
+    },
+  },
+];
+
+// Candidate Profile Options
 const SENIORITY_LEVELS = [
   { value: 'junior', label: '初階', labelEn: 'Junior', years: '0-2年' },
   { value: 'mid', label: '中階', labelEn: 'Mid-level', years: '2-5年' },
@@ -98,8 +128,9 @@ export default function StartPage() {
   const [creating, setCreating] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>('zh-TW');
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [feedbackMode, setFeedbackMode] = useState<'practice' | 'real'>('real'); // NEW
   
-  // Step 2: Candidate Profile (NEW)
+  // Step 2: Candidate Profile
   const [candidateRole, setCandidateRole] = useState('');
   const [customRole, setCustomRole] = useState('');
   const [seniority, setSeniority] = useState('mid');
@@ -157,7 +188,7 @@ export default function StartPage() {
         body: JSON.stringify({ 
           interviewType: selectedType,
           spokenLanguage: selectedLanguage,
-          // NEW: Candidate Profile
+          feedbackMode: feedbackMode, // NEW: Include feedback mode
           candidateRole: finalRole,
           candidateSeniority: seniority,
           candidateIndustry: industry,
@@ -260,12 +291,12 @@ export default function StartPage() {
                 {isZh ? '開始新的面試' : 'Start a New Interview'}
               </h2>
               <p className="text-gray-600">
-                {isZh ? '選擇語言和面試類型開始練習' : 'Choose your language and interview type to begin practicing'}
+                {isZh ? '選擇語言、模式和面試類型開始練習' : 'Choose your language, mode, and interview type to begin'}
               </p>
             </div>
 
-            {/* Language Selector (Your existing component) */}
-            <div className="mb-12 bg-white rounded-2xl shadow-lg p-8 border-2 border-indigo-100">
+            {/* Language Selector */}
+            <div className="mb-8 bg-white rounded-2xl shadow-lg p-8 border-2 border-indigo-100">
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center">
                   <span className="mr-2">🌐</span>
@@ -332,10 +363,81 @@ export default function StartPage() {
                     </p>
                     <p className="text-blue-800">
                       {isZh 
-                        ? 'AI面試官將全程使用所選語言進行面試，不會中途切換語言。這確保準確的語音辨識和專業的面試體驗。'
-                        : 'The AI interviewer will conduct the entire session in your selected language and won\'t switch languages mid-conversation. This ensures accurate transcription and a professional interview experience.'
+                        ? 'AI面試官將全程使用所選語言進行面試，不會中途切換語言。'
+                        : 'The AI interviewer will conduct the entire session in your selected language.'
                       }
                     </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* NEW: Feedback Mode Selector */}
+            <div className="mb-8 bg-white rounded-2xl shadow-lg p-8 border-2 border-green-100">
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center">
+                  <span className="mr-2">🎯</span>
+                  {isZh ? '面試模式' : 'Interview Mode'}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {isZh ? '選擇適合你的練習方式' : 'Choose the mode that fits your needs'}
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {FEEDBACK_MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setFeedbackMode(mode.id as 'practice' | 'real')}
+                    className={`p-6 rounded-xl border-2 transition-all duration-200 text-left ${
+                      feedbackMode === mode.id
+                        ? `border-transparent bg-gradient-to-br ${mode.color} text-white shadow-lg`
+                        : 'border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-4">
+                      <div className="text-4xl">{mode.icon}</div>
+                      <div className="flex-1">
+                        <div className={`font-bold text-lg mb-1 ${feedbackMode === mode.id ? 'text-white' : 'text-gray-900'}`}>
+                          {isZh ? mode.nameCn : mode.name}
+                        </div>
+                        <div className={`text-sm mb-3 ${feedbackMode === mode.id ? 'text-white/90' : 'text-gray-600'}`}>
+                          {isZh ? mode.descriptionCn : mode.description}
+                        </div>
+                        <ul className={`text-xs space-y-1 ${feedbackMode === mode.id ? 'text-white/80' : 'text-gray-500'}`}>
+                          {(isZh ? mode.features.zh : mode.features.en).map((feature, idx) => (
+                            <li key={idx} className="flex items-center">
+                              <span className="mr-1">✓</span> {feature}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                    
+                    {feedbackMode === mode.id && (
+                      <div className="mt-4 flex items-center justify-end">
+                        <span className="text-white/90 text-sm font-medium flex items-center">
+                          <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          {isZh ? '已選擇' : 'Selected'}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Mode Tip */}
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-start">
+                  <span className="text-xl mr-3">💡</span>
+                  <div className="text-sm text-gray-600">
+                    {isZh ? (
+                      <p><strong>建議：</strong>第一次使用建議選擇「練習模式」熟悉流程，準備面試前再用「實戰模式」模擬。</p>
+                    ) : (
+                      <p><strong>Tip:</strong> Try Practice Mode first to get familiar, then use Real Mode for final preparation.</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -371,7 +473,7 @@ export default function StartPage() {
           </>
         )}
 
-        {/* STEP 2: Candidate Profile (NEW) */}
+        {/* STEP 2: Candidate Profile */}
         {currentStep === 2 && (
           <div className="space-y-8">
             <div className="text-center">
@@ -456,7 +558,6 @@ export default function StartPage() {
                     key={level.value}
                     onClick={() => {
                       setSeniority(level.value);
-                      // Auto-set years based on seniority
                       const yearMap: Record<string, number> = {
                         junior: 1, mid: 3, senior: 6, lead: 9, executive: 12
                       };
@@ -502,16 +603,16 @@ export default function StartPage() {
               </div>
             </div>
 
-            {/* Selected Interview Type Summary */}
+            {/* Selected Settings Summary */}
             <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center space-x-4">
                   <span className="text-3xl">
                     {INTERVIEW_TYPES.find(t => t.id === selectedType)?.icon}
                   </span>
                   <div>
                     <p className="text-sm text-indigo-600 font-medium">
-                      {isZh ? '已選擇的面試類型' : 'Selected Interview Type'}
+                      {isZh ? '面試類型' : 'Interview Type'}
                     </p>
                     <p className="font-bold text-gray-900">
                       {isZh 
@@ -521,6 +622,25 @@ export default function StartPage() {
                     </p>
                   </div>
                 </div>
+                
+                {/* Show selected mode */}
+                <div className="flex items-center space-x-4">
+                  <span className="text-3xl">
+                    {FEEDBACK_MODES.find(m => m.id === feedbackMode)?.icon}
+                  </span>
+                  <div>
+                    <p className="text-sm text-indigo-600 font-medium">
+                      {isZh ? '模式' : 'Mode'}
+                    </p>
+                    <p className="font-bold text-gray-900">
+                      {isZh 
+                        ? FEEDBACK_MODES.find(m => m.id === feedbackMode)?.nameCn
+                        : FEEDBACK_MODES.find(m => m.id === feedbackMode)?.name
+                      }
+                    </p>
+                  </div>
+                </div>
+                
                 <div className="text-2xl">
                   {LANGUAGE_OPTIONS.find(l => l.code === selectedLanguage)?.flag}
                 </div>
@@ -553,7 +673,9 @@ export default function StartPage() {
                     {isZh ? '準備中...' : 'Starting...'}
                   </span>
                 ) : (
-                  <>🎤 {isZh ? '開始面試' : 'Start Interview'}</>
+                  <>
+                    {feedbackMode === 'practice' ? '🎓' : '💼'} {isZh ? '開始面試' : 'Start Interview'}
+                  </>
                 )}
               </button>
             </div>

@@ -12,6 +12,7 @@ import type { SupportedLanguage } from '@/lib/types/language';
 
 const VALID_INTERVIEW_TYPES = ['behavioral', 'technical', 'system-design', 'case-study'] as const;
 const VALID_SENIORITY_LEVELS = ['junior', 'mid', 'senior', 'lead', 'executive'] as const;
+const VALID_FEEDBACK_MODES = ['practice', 'real'] as const; // NEW
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,7 +28,8 @@ export async function POST(req: NextRequest) {
     const { 
       interviewType, 
       spokenLanguage = 'zh-TW',
-      // NEW: Candidate Profile Fields
+      feedbackMode = 'real', // NEW: Default to 'real' mode
+      // Candidate Profile Fields
       candidateRole,
       candidateSeniority = 'mid',
       candidateIndustry = 'tech',
@@ -46,6 +48,14 @@ export async function POST(req: NextRequest) {
     if (!isValidLanguage(spokenLanguage)) {
       return NextResponse.json(
         { error: 'Invalid language. Must be zh-TW or en-US' },
+        { status: 400 }
+      );
+    }
+
+    // NEW: Validate feedback mode
+    if (feedbackMode && !VALID_FEEDBACK_MODES.includes(feedbackMode)) {
+      return NextResponse.json(
+        { error: 'Invalid feedback mode. Must be practice or real' },
         { status: 400 }
       );
     }
@@ -71,16 +81,17 @@ export async function POST(req: NextRequest) {
 
     const roomName = `interview-${nanoid(16)}`;
 
-    // Create interview session with language AND candidate profile
+    // Create interview session with language, mode, AND candidate profile
     const newSession = await db.insert(interviewSessions).values({
       userId: user.id,
       roomName,
       interviewType,
       spokenLanguage: spokenLanguage as SupportedLanguage,
-      targetRole: candidateRole || 'Software Engineer', // Use candidateRole for targetRole too
+      feedbackMode: feedbackMode, // NEW: Save feedback mode
+      targetRole: candidateRole || 'Software Engineer',
       difficulty: 'medium',
       status: 'scheduled',
-      // NEW: Candidate Profile Fields
+      // Candidate Profile Fields
       candidateRole: candidateRole || null,
       candidateSeniority: candidateSeniority || 'mid',
       candidateIndustry: candidateIndustry || 'tech',
@@ -102,8 +113,8 @@ export async function POST(req: NextRequest) {
         metadata: JSON.stringify({
           interviewType,
           spokenLanguage,
+          feedbackMode, // NEW: Include in room metadata
           userId: user.id,
-          // NEW: Include candidate profile in room metadata
           candidateRole,
           candidateSeniority,
           candidateIndustry,
@@ -112,11 +123,11 @@ export async function POST(req: NextRequest) {
       });
 
       console.log(`✅ Created LiveKit room: ${roomName}`);
-      console.log(`   Language: ${spokenLanguage}`);
+      console.log(`   Language: ${spokenLanguage}, Mode: ${feedbackMode}`); // NEW: Log mode
       console.log(`   Role: ${candidateRole}, Seniority: ${candidateSeniority}`);
       console.log(`   Industry: ${candidateIndustry}, Years: ${candidateYearsExperience}`);
       
-      // NOTIFY AGENT TO JOIN ROOM (with language AND profile info)
+      // NOTIFY AGENT TO JOIN ROOM (with language, mode, AND profile info)
       try {
         const agentResponse = await fetch('https://python-agent-snowy-tree-6698.fly.dev/join-room', {
           method: 'POST',
@@ -125,7 +136,7 @@ export async function POST(req: NextRequest) {
             room_name: roomName,
             spoken_language: spokenLanguage,
             interview_type: interviewType,
-            // NEW: Pass candidate profile to agent
+            feedback_mode: feedbackMode, // NEW: Pass mode to agent
             candidate_role: candidateRole,
             candidate_seniority: candidateSeniority,
             candidate_industry: candidateIndustry,
@@ -152,6 +163,7 @@ export async function POST(req: NextRequest) {
       roomName,
       type: interviewType,
       language: spokenLanguage,
+      feedbackMode, // NEW: Log mode
       candidateRole,
       candidateSeniority,
       candidateIndustry,

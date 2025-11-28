@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { LiveKitRoom, RoomAudioRenderer, useRoomContext } from '@livekit/components-react';
 import '@livekit/components-styles';
@@ -43,6 +43,7 @@ interface SessionData {
   id: string;
   interviewType: string;
   spokenLanguage: string;
+  feedbackMode?: 'practice' | 'real'; // NEW
   candidateRole?: string;
   candidateSeniority?: string;
   candidateIndustry?: string;
@@ -50,7 +51,101 @@ interface SessionData {
 }
 
 // ============================================
-// STT QUALITY HINTS COMPONENT (NEW)
+// RECORDING HOOK (NEW)
+// ============================================
+function useAudioRecorder() {
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100,
+        } 
+      });
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+      console.log('🎙️ Recording started');
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      console.log('🎙️ Recording stopped');
+    }
+  }, [isRecording]);
+
+  return { isRecording, audioBlob, startRecording, stopRecording };
+}
+
+// ============================================
+// MODE BADGE COMPONENT (NEW)
+// ============================================
+function ModeBadge({ mode, isZh }: { mode?: 'practice' | 'real'; isZh: boolean }) {
+  if (!mode) return null;
+  
+  if (mode === 'practice') {
+    return (
+      <div className="flex items-center space-x-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+        <span>🎓</span>
+        <span>{isZh ? '練習' : 'Practice'}</span>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex items-center space-x-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+      <span>💼</span>
+      <span>{isZh ? '實戰' : 'Real'}</span>
+    </div>
+  );
+}
+
+// ============================================
+// RECORDING INDICATOR (NEW)
+// ============================================
+function RecordingIndicator({ isRecording, isZh }: { isRecording: boolean; isZh: boolean }) {
+  if (!isRecording) return null;
+  
+  return (
+    <div className="flex items-center space-x-2 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+      <span>{isZh ? '錄音中' : 'REC'}</span>
+    </div>
+  );
+}
+
+// ============================================
+// STT QUALITY HINTS COMPONENT
 // ============================================
 function AudioQualityHints({ 
   language, 
@@ -92,7 +187,7 @@ function AudioQualityHints({
 }
 
 // ============================================
-// CANDIDATE PROFILE BADGE (NEW)
+// CANDIDATE PROFILE BADGE
 // ============================================
 function CandidateProfileBadge({ session }: { session: SessionData }) {
   const isZh = session.spokenLanguage === 'zh-TW';
@@ -134,13 +229,15 @@ function InterviewControls({
   interviewType, 
   transcripts, 
   startTime,
-  language 
+  language,
+  onEndInterview, // NEW: callback for ending
 }: { 
   sessionId: string; 
   interviewType: string; 
   transcripts: Transcript[]; 
   startTime: number;
   language: string;
+  onEndInterview: () => void; // NEW
 }) {
   const router = useRouter();
   const room = useRoomContext();
@@ -167,6 +264,9 @@ function InterviewControls({
       });
 
       analytics.interviewCompleted(sessionId, interviewType, duration);
+
+      // NEW: Call the callback to stop recording
+      onEndInterview();
 
       room?.disconnect();
       router.push(`/evaluation/${sessionId}`);
@@ -263,6 +363,9 @@ export default function InterviewPage() {
   const lastCountRef = useRef(0);
   const noChangeCountRef = useRef(0);
 
+  // NEW: Recording hook
+  const { isRecording, audioBlob, startRecording, stopRecording } = useAudioRecorder();
+
   const isZh = spokenLanguage === 'zh-TW';
 
   // Auto-dismiss audio hints after 15 seconds
@@ -276,6 +379,49 @@ export default function InterviewPage() {
   useEffect(() => {
     fetchRoomToken();
   }, [roomName]);
+
+  // NEW: Start recording when session loads
+  useEffect(() => {
+    if (sessionData && !isRecording) {
+      startRecording();
+    }
+  }, [sessionData]);
+
+  // NEW: Upload recording when available
+  useEffect(() => {
+    if (audioBlob && sessionId) {
+      uploadRecording();
+    }
+  }, [audioBlob, sessionId]);
+
+  // NEW: Upload recording function
+  const uploadRecording = async () => {
+    if (!audioBlob || !sessionId) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, `interview-${sessionId}.webm`);
+      formData.append('sessionId', sessionId);
+
+      const response = await fetch('/api/interview/upload-recording', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        console.log('✅ Recording uploaded successfully');
+      } else {
+        console.error('Failed to upload recording');
+      }
+    } catch (error) {
+      console.error('Error uploading recording:', error);
+    }
+  };
+
+  // NEW: Handle end interview (stop recording)
+  const handleEndInterview = () => {
+    stopRecording();
+  };
 
   useEffect(() => {
     if (!sessionId) return;
@@ -349,6 +495,7 @@ export default function InterviewPage() {
           id: session.id,
           interviewType: session.interviewType,
           spokenLanguage: session.spokenLanguage,
+          feedbackMode: session.feedbackMode, // NEW
           candidateRole: session.candidateRole,
           candidateSeniority: session.candidateSeniority,
           candidateIndustry: session.candidateIndustry,
@@ -440,6 +587,10 @@ export default function InterviewPage() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              {/* NEW: Recording Indicator */}
+              <RecordingIndicator isRecording={isRecording} isZh={isZh} />
+              {/* NEW: Mode Badge */}
+              <ModeBadge mode={sessionData?.feedbackMode} isZh={isZh} />
               {/* Language Badge */}
               <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
                 {spokenLanguage === 'zh-TW' ? '🇹🇼 中文' : '🇺🇸 English'}
@@ -484,8 +635,17 @@ export default function InterviewPage() {
                     </p>
                   </div>
                   
-                  {/* Candidate Profile Badge (NEW) */}
+                  {/* Candidate Profile Badge */}
                   {sessionData && <CandidateProfileBadge session={sessionData} />}
+                  
+                  {/* NEW: Practice Mode Hint */}
+                  {sessionData?.feedbackMode === 'practice' && (
+                    <div className="bg-green-500/20 backdrop-blur-sm rounded-lg px-4 py-2">
+                      <p className="text-green-100 text-sm">
+                        🎓 {isZh ? '練習模式：回答後會有即時提示' : 'Practice Mode: You\'ll get tips after each answer'}
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="flex items-center justify-center space-x-3 py-4">
                     <div className="p-3 bg-white/20 backdrop-blur-sm rounded-full">
@@ -513,6 +673,7 @@ export default function InterviewPage() {
                 transcripts={transcripts} 
                 startTime={startTime}
                 language={spokenLanguage}
+                onEndInterview={handleEndInterview} // NEW
               />
             </div>
           </div>
@@ -520,7 +681,7 @@ export default function InterviewPage() {
         </LiveKitRoom>
       </main>
 
-      {/* STT Quality Hints (NEW) */}
+      {/* STT Quality Hints */}
       <AudioQualityHints 
         language={spokenLanguage}
         isVisible={showAudioHints}
