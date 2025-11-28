@@ -1,13 +1,12 @@
 // app/api/interview/upload-recording/route.ts
-// Handle audio recording uploads
+// Handle audio recording uploads using Vercel Blob
 
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { interviewSessions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,38 +43,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert file to buffer
-    const bytes = await audioFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Upload to Vercel Blob
+    const filename = `recordings/interview-${sessionId}.webm`;
+    
+    const blob = await put(filename, audioFile, {
+      access: 'public',
+      contentType: 'audio/webm',
+    });
 
-    // Create recordings directory if it doesn't exist
-    const recordingsDir = path.join(process.cwd(), 'public', 'recordings');
-    try {
-      await mkdir(recordingsDir, { recursive: true });
-    } catch (e) {
-      // Directory might already exist
-    }
-
-    // Generate filename
-    const filename = `interview-${sessionId}.webm`;
-    const filepath = path.join(recordingsDir, filename);
-
-    // Write file
-    await writeFile(filepath, buffer);
-
-    // Generate URL (relative to public folder)
-    const recordingUrl = `/recordings/${filename}`;
+    console.log(`✅ Recording uploaded to Vercel Blob: ${blob.url}`);
 
     // Update session with recording URL
     await db.update(interviewSessions)
-      .set({ recordingUrl })
+      .set({ recordingUrl: blob.url })
       .where(eq(interviewSessions.id, sessionId));
-
-    console.log(`✅ Recording saved for session ${sessionId}: ${recordingUrl}`);
 
     return NextResponse.json({
       success: true,
-      recordingUrl,
+      recordingUrl: blob.url,
     });
 
   } catch (error) {
