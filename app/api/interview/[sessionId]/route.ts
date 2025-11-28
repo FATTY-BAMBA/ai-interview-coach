@@ -34,9 +34,37 @@ export async function GET(
       timestamp: turn.timestamp,
     }));
 
+    // Log for debugging
+    console.log(`📋 Session ${sessionId}:`, {
+      recordingUrl: session.recordingUrl,
+      feedbackMode: session.feedbackMode,
+    });
+
     return NextResponse.json({ 
       session: {
-        ...session,
+        id: session.id,
+        userId: session.userId,
+        roomName: session.roomName,
+        interviewType: session.interviewType,
+        targetRole: session.targetRole,
+        difficulty: session.difficulty,
+        spokenLanguage: session.spokenLanguage,
+        // Candidate profile
+        candidateRole: session.candidateRole,
+        candidateSeniority: session.candidateSeniority,
+        candidateIndustry: session.candidateIndustry,
+        candidateYearsExperience: session.candidateYearsExperience,
+        // Mode and recording
+        feedbackMode: session.feedbackMode,       // Explicitly include
+        recordingUrl: session.recordingUrl,       // Explicitly include
+        // Status
+        status: session.status,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        duration: session.duration,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        // Transcripts
         transcripts,
       }
     });
