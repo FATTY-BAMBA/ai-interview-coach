@@ -27,14 +27,18 @@ export const interviewSessions = pgTable('interview_sessions', {
   candidateIndustry: varchar('candidate_industry', { length: 100 }),
   candidateYearsExperience: integer('candidate_years_experience'),
   
-  // NEW: Feedback Mode (Phase 4 - Practice vs Real)
-  feedbackMode: varchar('feedback_mode', { length: 20 }).default('real'), // 'practice' or 'real'
+  // Feedback Mode (Phase 4 - Practice vs Real)
+  feedbackMode: varchar('feedback_mode', { length: 20 }).default('real'),
   
   status: varchar('status', { length: 50 }).default('scheduled'),
   startedAt: timestamp('started_at'),
   endedAt: timestamp('ended_at'),
   duration: integer('duration'),
   recordingUrl: text('recording_url'),
+  
+  // NEW: LiveKit Egress ID for server-side recording
+  egressId: varchar('egress_id', { length: 50 }),
+  
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -43,7 +43,7 @@ interface SessionData {
   id: string;
   interviewType: string;
   spokenLanguage: string;
-  feedbackMode?: 'practice' | 'real'; // NEW
+  feedbackMode?: 'practice' | 'real';
   candidateRole?: string;
   candidateSeniority?: string;
   candidateIndustry?: string;
@@ -51,7 +51,7 @@ interface SessionData {
 }
 
 // ============================================
-// RECORDING HOOK (NEW)
+// BROWSER RECORDING HOOK (backup - user voice only)
 // ============================================
 function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
@@ -90,9 +90,9 @@ function useAudioRecorder() {
 
       mediaRecorder.start(1000);
       setIsRecording(true);
-      console.log('🎙️ Recording started');
+      console.log('🎙️ Browser recording started');
     } catch (error) {
-      console.error('Failed to start recording:', error);
+      console.error('Failed to start browser recording:', error);
     }
   }, []);
 
@@ -100,7 +100,7 @@ function useAudioRecorder() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      console.log('🎙️ Recording stopped');
+      console.log('🎙️ Browser recording stopped');
     }
   }, [isRecording]);
 
@@ -108,7 +108,56 @@ function useAudioRecorder() {
 }
 
 // ============================================
-// MODE BADGE COMPONENT (NEW)
+// SERVER RECORDING HOOK (NEW - full conversation)
+// ============================================
+function useServerRecording() {
+  const [egressId, setEgressId] = useState<string | null>(null);
+  const [isServerRecording, setIsServerRecording] = useState(false);
+
+  const startServerRecording = useCallback(async (roomName: string, sessionId: string) => {
+    try {
+      const response = await fetch('/api/interview/recording/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomName, sessionId }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.egressId) {
+        setEgressId(data.egressId);
+        setIsServerRecording(true);
+        console.log('🎬 Server recording started:', data.egressId);
+      } else {
+        console.log('ℹ️ Server recording not available:', data.message);
+      }
+    } catch (error) {
+      console.error('Server recording start error:', error);
+    }
+  }, []);
+
+  const stopServerRecording = useCallback(async (sessionId: string) => {
+    if (!egressId) return;
+
+    try {
+      await fetch('/api/interview/recording/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ egressId, sessionId }),
+      });
+      
+      setIsServerRecording(false);
+      console.log('🎬 Server recording stopped');
+    } catch (error) {
+      console.error('Server recording stop error:', error);
+    }
+  }, [egressId]);
+
+  return { egressId, isServerRecording, startServerRecording, stopServerRecording };
+}
+
+// ============================================
+// MODE BADGE COMPONENT
 // ============================================
 function ModeBadge({ mode, isZh }: { mode?: 'practice' | 'real'; isZh: boolean }) {
   if (!mode) return null;
@@ -131,15 +180,35 @@ function ModeBadge({ mode, isZh }: { mode?: 'practice' | 'real'; isZh: boolean }
 }
 
 // ============================================
-// RECORDING INDICATOR (NEW)
+// RECORDING INDICATOR (shows server or browser)
 // ============================================
-function RecordingIndicator({ isRecording, isZh }: { isRecording: boolean; isZh: boolean }) {
-  if (!isRecording) return null;
+function RecordingIndicator({ 
+  isServerRecording, 
+  isBrowserRecording, 
+  isZh 
+}: { 
+  isServerRecording: boolean;
+  isBrowserRecording: boolean;
+  isZh: boolean;
+}) {
+  if (!isServerRecording && !isBrowserRecording) return null;
+  
+  // Server recording takes priority in display
+  const isServer = isServerRecording;
   
   return (
-    <div className="flex items-center space-x-2 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
-      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-      <span>{isZh ? '錄音中' : 'REC'}</span>
+    <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
+      isServer ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+    }`}>
+      <div className={`w-2 h-2 rounded-full animate-pulse ${
+        isServer ? 'bg-red-500' : 'bg-orange-500'
+      }`}></div>
+      <span>
+        {isServer 
+          ? (isZh ? '🎬 完整錄音中' : '🎬 Full REC') 
+          : (isZh ? '🎙️ 錄音中' : '🎙️ REC')
+        }
+      </span>
     </div>
   );
 }
@@ -230,14 +299,14 @@ function InterviewControls({
   transcripts, 
   startTime,
   language,
-  onEndInterview, // NEW: callback for ending
+  onEndInterview,
 }: { 
   sessionId: string; 
   interviewType: string; 
   transcripts: Transcript[]; 
   startTime: number;
   language: string;
-  onEndInterview: () => void; // NEW
+  onEndInterview: () => void;
 }) {
   const router = useRouter();
   const room = useRoomContext();
@@ -265,7 +334,7 @@ function InterviewControls({
 
       analytics.interviewCompleted(sessionId, interviewType, duration);
 
-      // NEW: Call the callback to stop recording
+      // Stop recordings
       onEndInterview();
 
       room?.disconnect();
@@ -363,8 +432,11 @@ export default function InterviewPage() {
   const lastCountRef = useRef(0);
   const noChangeCountRef = useRef(0);
 
-  // NEW: Recording hook
-  const { isRecording, audioBlob, startRecording, stopRecording } = useAudioRecorder();
+  // Browser recording (backup - user voice only)
+  const { isRecording: isBrowserRecording, audioBlob, startRecording, stopRecording } = useAudioRecorder();
+  
+  // Server recording (NEW - full conversation via LiveKit Egress)
+  const { isServerRecording, startServerRecording, stopServerRecording } = useServerRecording();
 
   const isZh = spokenLanguage === 'zh-TW';
 
@@ -380,22 +452,27 @@ export default function InterviewPage() {
     fetchRoomToken();
   }, [roomName]);
 
-  // NEW: Start recording when session loads
+  // Start BOTH recordings when session loads
   useEffect(() => {
-    if (sessionData && !isRecording) {
-      startRecording();
+    if (sessionData && roomName) {
+      // Start browser recording (backup)
+      if (!isBrowserRecording) {
+        startRecording();
+      }
+      // Start server recording (full conversation)
+      startServerRecording(roomName, sessionData.id);
     }
-  }, [sessionData]);
+  }, [sessionData, roomName]);
 
-  // NEW: Upload recording when available
+  // Upload browser recording when available (as backup)
   useEffect(() => {
     if (audioBlob && sessionId) {
-      uploadRecording();
+      uploadBrowserRecording();
     }
   }, [audioBlob, sessionId]);
 
-  // NEW: Upload recording function
-  const uploadRecording = async () => {
+  // Upload browser recording (backup - only if server recording failed)
+  const uploadBrowserRecording = async () => {
     if (!audioBlob || !sessionId) return;
 
     try {
@@ -409,18 +486,22 @@ export default function InterviewPage() {
       });
 
       if (response.ok) {
-        console.log('✅ Recording uploaded successfully');
-      } else {
-        console.error('Failed to upload recording');
+        console.log('✅ Browser recording uploaded (backup)');
       }
     } catch (error) {
-      console.error('Error uploading recording:', error);
+      console.error('Error uploading browser recording:', error);
     }
   };
 
-  // NEW: Handle end interview (stop recording)
-  const handleEndInterview = () => {
+  // Handle end interview - stop both recordings
+  const handleEndInterview = async () => {
+    // Stop browser recording
     stopRecording();
+    
+    // Stop server recording
+    if (sessionData) {
+      await stopServerRecording(sessionData.id);
+    }
   };
 
   useEffect(() => {
@@ -495,7 +576,7 @@ export default function InterviewPage() {
           id: session.id,
           interviewType: session.interviewType,
           spokenLanguage: session.spokenLanguage,
-          feedbackMode: session.feedbackMode, // NEW
+          feedbackMode: session.feedbackMode,
           candidateRole: session.candidateRole,
           candidateSeniority: session.candidateSeniority,
           candidateIndustry: session.candidateIndustry,
@@ -587,9 +668,13 @@ export default function InterviewPage() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              {/* NEW: Recording Indicator */}
-              <RecordingIndicator isRecording={isRecording} isZh={isZh} />
-              {/* NEW: Mode Badge */}
+              {/* Recording Indicator - shows server or browser */}
+              <RecordingIndicator 
+                isServerRecording={isServerRecording} 
+                isBrowserRecording={isBrowserRecording}
+                isZh={isZh} 
+              />
+              {/* Mode Badge */}
               <ModeBadge mode={sessionData?.feedbackMode} isZh={isZh} />
               {/* Language Badge */}
               <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
@@ -638,7 +723,7 @@ export default function InterviewPage() {
                   {/* Candidate Profile Badge */}
                   {sessionData && <CandidateProfileBadge session={sessionData} />}
                   
-                  {/* NEW: Practice Mode Hint */}
+                  {/* Practice Mode Hint */}
                   {sessionData?.feedbackMode === 'practice' && (
                     <div className="bg-green-500/20 backdrop-blur-sm rounded-lg px-4 py-2">
                       <p className="text-green-100 text-sm">
@@ -673,7 +758,7 @@ export default function InterviewPage() {
                 transcripts={transcripts} 
                 startTime={startTime}
                 language={spokenLanguage}
-                onEndInterview={handleEndInterview} // NEW
+                onEndInterview={handleEndInterview}
               />
             </div>
           </div>
